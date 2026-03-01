@@ -28,7 +28,8 @@ async function checkBattery(): Promise<void> {
     DeviceInfo.isBatteryCharging(),
   ]);
 
-  const batteryPercent = Math.round(level * 100);
+  // level returns -1 on simulators/unsupported devices — treat as full
+  const batteryPercent = level < 0 ? 100 : Math.round(level * 100);
   const threshold = await getThreshold();
 
   if (isCharging) {

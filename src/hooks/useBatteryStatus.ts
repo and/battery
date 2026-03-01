@@ -22,7 +22,9 @@ export function useBatteryStatus(): BatteryStatus {
         DeviceInfo.isBatteryCharging(),
       ]);
       if (mounted.current) {
-        setLevel(Math.round(batteryLevel * 100));
+        // batteryLevel returns -1 on simulators/unsupported devices
+        const clamped = batteryLevel < 0 ? 1 : batteryLevel;
+        setLevel(Math.round(clamped * 100));
         setIsCharging(charging);
       }
     } catch {
