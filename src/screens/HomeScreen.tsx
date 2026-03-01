@@ -11,6 +11,7 @@ import {
   Dimensions,
   AccessibilityInfo,
   useColorScheme,
+  Pressable,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import {useBatteryStatus} from '../hooks/useBatteryStatus';
@@ -24,6 +25,9 @@ import {
   startMonitoring,
   stopMonitoring,
   forceCheck,
+  getAlertingState,
+  getSnoozedState,
+  snoozeAlarm,
 } from '../services/BatteryMonitor';
 import {requestNotificationPermission} from '../services/NotificationService';
 import {
@@ -258,6 +262,8 @@ export default function HomeScreen(): React.JSX.Element {
   const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
   const [monitoring, setMonitoring] = useState(true);
   const [loaded, setLoaded] = useState(false);
+  const [alerting, setAlerting] = useState(false);
+  const [snoozed, setSnoozed] = useState(false);
   const reduceMotion = useReduceMotion();
 
   useEffect(() => {
@@ -274,6 +280,20 @@ export default function HomeScreen(): React.JSX.Element {
         startMonitoring();
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    const poll = setInterval(() => {
+      setAlerting(getAlertingState());
+      setSnoozed(getSnoozedState());
+    }, 2000);
+    return () => clearInterval(poll);
+  }, []);
+
+  const handleSnooze = useCallback(() => {
+    snoozeAlarm();
+    setAlerting(getAlertingState());
+    setSnoozed(true);
   }, []);
 
   const handleThresholdSlide = useCallback((value: number) => {
@@ -396,6 +416,33 @@ export default function HomeScreen(): React.JSX.Element {
           </View>
         </View>
       </FadeIn>
+
+      {/* Snooze button */}
+      {alerting && !snoozed && (
+        <FadeIn delay={0} reduceMotion={reduceMotion}>
+          <Pressable
+            style={({pressed}) => [
+              styles.snoozeButton,
+              pressed && styles.snoozeButtonPressed,
+            ]}
+            onPress={handleSnooze}
+            accessibilityLabel="Snooze alarm for 5 minutes"
+            accessibilityRole="button">
+            <Text style={styles.snoozeButtonText}>Snooze 5 min</Text>
+          </Pressable>
+        </FadeIn>
+      )}
+      {snoozed && (
+        <FadeIn delay={0} reduceMotion={reduceMotion}>
+          <View
+            style={styles.snoozedLabel}
+            accessible={true}
+            accessibilityLabel="Alarm snoozed"
+            accessibilityRole="text">
+            <Text style={styles.snoozedText}>Snoozed</Text>
+          </View>
+        </FadeIn>
+      )}
 
       {/* Threshold card */}
       <FadeIn delay={reduceMotion ? 0 : 200} reduceMotion={reduceMotion}>
@@ -556,6 +603,45 @@ const styles = StyleSheet.create({
     fontSize: 14,                   // raised from 12
     fontWeight: '500',
     letterSpacing: 0.3,
+  },
+
+  // Snooze
+  snoozeButton: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.critical,
+    paddingVertical: 14,
+    marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  snoozeButtonPressed: {
+    opacity: 0.7,
+  },
+  snoozeButtonText: {
+    color: COLORS.critical,
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  snoozedLabel: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
+    paddingVertical: 14,
+    marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  snoozedText: {
+    color: COLORS.textSecondary,
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
 
   // Cards

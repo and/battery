@@ -6,10 +6,12 @@ import {
 } from './NotificationService';
 import {startAlarm, stopAlarm} from './AlarmService';
 import {getThreshold, getMonitoringEnabled} from '../storage/settings';
-import {BATTERY_CHECK_INTERVAL_MS} from '../utils/constants';
+import {BATTERY_CHECK_INTERVAL_MS, SNOOZE_DURATION_MS} from '../utils/constants';
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
 let isAlerting = false;
+let isSnoozed = false;
+let snoozeTimerId: ReturnType<typeof setTimeout> | null = null;
 let appStateSubscription: {remove: () => void} | null = null;
 let powerStateSubscription: {remove: () => void} | null = null;
 
@@ -38,13 +40,14 @@ async function checkBattery(): Promise<void> {
       stopAlarm();
       isAlerting = false;
     }
+    clearSnooze();
     return;
   }
 
   // Not charging and battery is at or below threshold
   if (batteryPercent <= threshold) {
     await showLowBatteryAlert(batteryPercent);
-    if (!isAlerting) {
+    if (!isAlerting && !isSnoozed) {
       startAlarm();
     }
     isAlerting = true;
@@ -100,6 +103,7 @@ export function stopMonitoring(): void {
     stopAlarm();
     isAlerting = false;
   }
+  clearSnooze();
 }
 
 export function forceCheck(): void {
@@ -108,4 +112,26 @@ export function forceCheck(): void {
 
 export function getAlertingState(): boolean {
   return isAlerting;
+}
+
+function clearSnooze(): void {
+  if (snoozeTimerId) {
+    clearTimeout(snoozeTimerId);
+    snoozeTimerId = null;
+  }
+  isSnoozed = false;
+}
+
+export function snoozeAlarm(): void {
+  stopAlarm();
+  isSnoozed = true;
+  snoozeTimerId = setTimeout(() => {
+    isSnoozed = false;
+    snoozeTimerId = null;
+    checkBattery();
+  }, SNOOZE_DURATION_MS);
+}
+
+export function getSnoozedState(): boolean {
+  return isSnoozed;
 }

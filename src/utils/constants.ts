@@ -6,3 +6,4 @@ export const BATTERY_CHECK_INTERVAL_MS = 15_000; // fallback polling interval (1
 export const NOTIFICATION_CHANNEL_ID = 'battery-alert-channel';
 export const NOTIFICATION_ID = 'battery-low-alert';
 export const MONITORING_NOTIFICATION_ID = 'battery-monitoring';
+export const SNOOZE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
