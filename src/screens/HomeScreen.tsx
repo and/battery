@@ -276,7 +276,11 @@ export default function HomeScreen(): React.JSX.Element {
     })();
   }, []);
 
-  const handleThresholdChange = useCallback(async (value: number) => {
+  const handleThresholdSlide = useCallback((value: number) => {
+    setThreshold(Math.round(value));
+  }, []);
+
+  const handleThresholdCommit = useCallback(async (value: number) => {
     const rounded = Math.round(value);
     setThreshold(rounded);
     await saveThreshold(rounded);
@@ -414,7 +418,8 @@ export default function HomeScreen(): React.JSX.Element {
             maximumValue={MAX_THRESHOLD}
             step={1}
             value={threshold}
-            onSlidingComplete={handleThresholdChange}
+            onValueChange={handleThresholdSlide}
+            onSlidingComplete={handleThresholdCommit}
             minimumTrackTintColor={COLORS.critical}
             maximumTrackTintColor={COLORS.surfaceBorder}
             thumbTintColor={COLORS.critical}
