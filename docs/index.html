@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Battery Alert — Never Run Out Again</title>
+  <meta name="description" content="A cross-platform app that sounds a persistent alarm when your battery drops below a custom threshold. Only stops when you plug in.">
+  <meta name="theme-color" content="#09090B">
+  <link rel="icon" type="image/png" href="icon.png">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Battery Alert">
+  <meta property="og:description" content="Persistent alarm when battery is low. Only stops when you plug in your charger.">
+  <meta property="og:image" content="icon.png">
+  <meta property="og:type" content="website">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #09090B;
+      --surface: #131316;
+      --border: #1E1E24;
+      --border-hover: #2A2A32;
+      --red: #F87171;
+      --red-dim: #7F1D1D;
+      --green: #34D399;
+      --green-dim: #064E3B;
+      --amber: #FBBF24;
+      --text: #FAFAFA;
+      --text-secondary: #A1A1AA;
+      --text-muted: #52525B;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* --- Ambient background --- */
+    .bg-glow {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .bg-glow::before {
+      content: '';
+      position: absolute;
+      top: -30%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 800px;
+      background: radial-gradient(circle, rgba(248,113,113,0.06) 0%, transparent 70%);
+      animation: glow-pulse 6s ease-in-out infinite alternate;
+    }
+    @keyframes glow-pulse {
+      0% { opacity: 0.4; transform: translateX(-50%) scale(1); }
+      100% { opacity: 0.8; transform: translateX(-50%) scale(1.15); }
+    }
+
+    /* --- Layout --- */
+    .page { position: relative; z-index: 1; }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* --- Nav --- */
+    nav {
+      padding: 20px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text);
+    }
+    .nav-brand img {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+    }
+    .nav-brand span {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .nav-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+    .nav-link:hover {
+      color: var(--text);
+      border-color: var(--border-hover);
+      background: var(--surface);
+    }
+
+    /* --- Hero --- */
+    .hero {
+      padding: 100px 0 80px;
+      text-align: center;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+    }
+    .hero-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: dot-pulse 2s ease-in-out infinite;
+    }
+    @keyframes dot-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .hero h1 {
+      font-size: clamp(40px, 8vw, 72px);
+      font-weight: 300;
+      line-height: 1.05;
+      letter-spacing: -2px;
+      margin-bottom: 24px;
+    }
+    .hero h1 strong {
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--red) 0%, var(--amber) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-sub {
+      font-size: 18px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      max-width: 480px;
+      margin: 0 auto 48px;
+    }
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary {
+      background: var(--red);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: #ef5350;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 32px rgba(248,113,113,0.25);
+    }
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-1px);
+    }
+    .btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* --- Gauge demo --- */
+    .gauge-section {
+      padding: 40px 0 80px;
+      display: flex;
+      justify-content: center;
+    }
+    .gauge-wrapper {
+      position: relative;
+      width: 240px;
+      height: 240px;
+    }
+    .gauge-ring {
+      width: 240px;
+      height: 240px;
+      animation: gauge-spin 60s linear infinite;
+    }
+    @keyframes gauge-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .gauge-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .gauge-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 56px;
+      font-weight: 300;
+      color: var(--red);
+      line-height: 1;
+    }
+    .gauge-label {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      letter-spacing: 1px;
+    }
+    .gauge-pulse {
+      position: absolute;
+      inset: -12px;
+      border-radius: 50%;
+      border: 2px solid var(--red);
+      animation: ring-pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes ring-pulse {
+      0%, 100% { opacity: 0.15; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.06); }
+    }
+
+    /* --- Features --- */
+    .features {
+      padding: 80px 0;
+      border-top: 1px solid var(--border);
+    }
+    .features-header {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+    .features-header h2 {
+      font-size: 32px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .features-header p {
+      color: var(--text-secondary);
+      font-size: 16px;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 24px;
+      transition: border-color 0.2s;
+    }
+    .feature-card:hover {
+      border-color: var(--border-hover);
+    }
+    .feature-icon {
+      font-size: 28px;
+      margin-bottom: 16px;
+      display: block;
+    }
+    .feature-card h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .feature-card p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* --- How it works --- */
+    .how-it-works {
+      padding: 80px 0;
+      border-top: 1px solid var(--border);
+    }
+    .how-it-works h2 {
+      font-size: 32px;
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 56px;
+    }
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+    .step {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+    .step-content h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .step-content p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* --- Tech specs --- */
+    .specs {
+      padding: 80px 0;
+      border-top: 1px solid var(--border);
+    }
+    .specs h2 {
+      font-size: 32px;
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .spec-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+    .spec-item {
+      text-align: center;
+      padding: 24px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .spec-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 28px;
+      font-weight: 300;
+      color: var(--green);
+      display: block;
+      margin-bottom: 6px;
+    }
+    .spec-label {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* --- Footer --- */
+    footer {
+      padding: 40px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+    footer p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    footer a {
+      color: var(--text-secondary);
+      text-decoration: none;
+    }
+    footer a:hover {
+      color: var(--text);
+    }
+
+    /* --- Animations --- */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fade-up 0.6s ease-out forwards;
+    }
+    .fade-in:nth-child(1) { animation-delay: 0s; }
+    .fade-in:nth-child(2) { animation-delay: 0.1s; }
+    .fade-in:nth-child(3) { animation-delay: 0.2s; }
+    .fade-in:nth-child(4) { animation-delay: 0.3s; }
+    .fade-in:nth-child(5) { animation-delay: 0.4s; }
+    .fade-in:nth-child(6) { animation-delay: 0.5s; }
+
+    @keyframes fade-up {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+      .fade-in { opacity: 1; transform: none; }
+    }
+
+    @media (max-width: 480px) {
+      .hero { padding: 60px 0 40px; }
+      .hero h1 { letter-spacing: -1px; }
+      .hero-sub { font-size: 16px; }
+      .features, .how-it-works, .specs { padding: 60px 0; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-glow"></div>
+
+<div class="page">
+  <!-- Nav -->
+  <nav>
+    <div class="container nav-inner">
+      <a href="#" class="nav-brand">
+        <img src="icon.png" alt="Battery Alert icon">
+        <span>Battery Alert</span>
+      </a>
+      <a href="https://github.com/and/battery" class="nav-link" target="_blank" rel="noopener">
+        <span>GitHub</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge fade-in">
+        <span class="dot"></span>
+        Open Source &middot; Android &amp; iOS
+      </div>
+      <h1 class="fade-in">
+        Never wake up to a<br><strong>dead phone</strong> again
+      </h1>
+      <p class="hero-sub fade-in">
+        A persistent alarm that sounds when your battery drops below your chosen threshold.
+        It only stops when you plug in your charger.
+      </p>
+      <div class="hero-actions fade-in">
+        <a href="https://github.com/and/battery/releases" class="btn btn-primary" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download APK
+        </a>
+        <a href="https://github.com/and/battery" class="btn btn-secondary" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          Source Code
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Gauge demo -->
+  <section class="gauge-section">
+    <div class="gauge-wrapper fade-in">
+      <div class="gauge-pulse"></div>
+      <svg class="gauge-ring" viewBox="0 0 240 240">
+        <g transform="translate(120,120)">
+          <!-- 40 segments -->
+          <script type="text/javascript">/* segments rendered below */</script>
+        </g>
+      </svg>
+      <svg class="gauge-ring" viewBox="0 0 240 240" style="position:absolute;top:0;left:0;animation:none;">
+        <g transform="translate(120,120)">
+          <!-- Static gauge segments: 32% filled (13 of 40 active) -->
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#F87171" opacity="0.9" transform="rotate(0)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#F87171" opacity="0.9" transform="rotate(9)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#F87171" opacity="0.9" transform="rotate(18)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#F87171" opacity="0.9" transform="rotate(27)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#F87171" opacity="0.9" transform="rotate(36)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#F87171" opacity="0.9" transform="rotate(45)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#F87171" opacity="0.9" transform="rotate(54)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#F87171" opacity="0.9" transform="rotate(63)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#F87171" opacity="0.9" transform="rotate(72)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#F87171" opacity="0.9" transform="rotate(81)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#F87171" opacity="0.9" transform="rotate(90)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#F87171" opacity="0.9" transform="rotate(99)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#F87171" opacity="0.9" transform="rotate(108)"/>
+          <!-- Inactive segments -->
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(117)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(126)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(135)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(144)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(153)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(162)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(171)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(180)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(189)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(198)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(207)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(216)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(225)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(234)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(243)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(252)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(261)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(270)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(279)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(288)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(297)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(306)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(315)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(324)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(333)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(342)"/>
+          <rect x="-1.5" y="-115" width="3" height="10" rx="1.5" fill="#1E1E24" opacity="0.4" transform="rotate(351)"/>
+        </g>
+      </svg>
+      <div class="gauge-center">
+        <span class="gauge-value">32</span>
+        <span class="gauge-label">% battery</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features">
+    <div class="container">
+      <div class="features-header">
+        <h2>Built for people who forget</h2>
+        <p>Set it once. Never worry about a dead phone again.</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card fade-in">
+          <span class="feature-icon" aria-hidden="true">&#x1F50A;</span>
+          <h3>Persistent Alarm</h3>
+          <p>Looping alarm sound that cannot be dismissed. Only stops when you plug in the charger.</p>
+        </div>
+        <div class="feature-card fade-in">
+          <span class="feature-icon" aria-hidden="true">&#x1F50B;</span>
+          <h3>Custom Threshold</h3>
+          <p>Set your alert level from 5% to 50%. Get warned before it's too late.</p>
+        </div>
+        <div class="feature-card fade-in">
+          <span class="feature-icon" aria-hidden="true">&#x26A1;</span>
+          <h3>Zero Battery Drain</h3>
+          <p>Event-driven architecture. Listens to OS broadcasts instead of polling.</p>
+        </div>
+        <div class="feature-card fade-in">
+          <span class="feature-icon" aria-hidden="true">&#x267F;</span>
+          <h3>Accessible</h3>
+          <p>WCAG AA compliant. Large text, high contrast, screen reader support, reduce motion.</p>
+        </div>
+        <div class="feature-card fade-in">
+          <span class="feature-icon" aria-hidden="true">&#x1F514;</span>
+          <h3>Sticky Notification</h3>
+          <p>Non-dismissible notification stays visible until the charger is connected.</p>
+        </div>
+        <div class="feature-card fade-in">
+          <span class="feature-icon" aria-hidden="true">&#x1F30D;</span>
+          <h3>Cross-Platform</h3>
+          <p>Works on both Android and iOS. One codebase, built with React Native.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="how-it-works">
+    <div class="container">
+      <h2>How it works</h2>
+      <div class="steps">
+        <div class="step fade-in">
+          <div class="step-num">01</div>
+          <div class="step-content">
+            <h3>Set your threshold</h3>
+            <p>Choose the battery percentage that should trigger the alarm. Default is 20%.</p>
+          </div>
+        </div>
+        <div class="step fade-in">
+          <div class="step-num">02</div>
+          <div class="step-content">
+            <h3>Enable monitoring</h3>
+            <p>Toggle monitoring on. The app listens for battery changes using system-level events.</p>
+          </div>
+        </div>
+        <div class="step fade-in">
+          <div class="step-num">03</div>
+          <div class="step-content">
+            <h3>Get alerted</h3>
+            <p>When battery drops below your threshold, a loud alarm sounds with a persistent notification.</p>
+          </div>
+        </div>
+        <div class="step fade-in">
+          <div class="step-num">04</div>
+          <div class="step-content">
+            <h3>Plug in to silence</h3>
+            <p>The alarm only stops when you connect your charger. No snooze, no dismiss.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tech Specs -->
+  <section class="specs">
+    <div class="container">
+      <h2>Under the hood</h2>
+      <div class="spec-grid">
+        <div class="spec-item fade-in">
+          <span class="spec-value">0</span>
+          <span class="spec-label">Network calls</span>
+        </div>
+        <div class="spec-item fade-in">
+          <span class="spec-value">~0%</span>
+          <span class="spec-label">CPU when idle</span>
+        </div>
+        <div class="spec-item fade-in">
+          <span class="spec-value">50MB</span>
+          <span class="spec-label">App size</span>
+        </div>
+        <div class="spec-item fade-in">
+          <span class="spec-value">AA</span>
+          <span class="spec-label">WCAG rating</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p>
+        Built with React Native &middot;
+        <a href="https://github.com/and/battery" target="_blank" rel="noopener">Open Source on GitHub</a>
+      </p>
+    </div>
+  </footer>
+</div>
+
+</body>
+</html>
