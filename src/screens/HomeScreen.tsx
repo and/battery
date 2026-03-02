@@ -28,6 +28,8 @@ import {
   getAlertingState,
   getSnoozedState,
   snoozeAlarm,
+  startBackgroundService,
+  stopBackgroundService,
 } from '../services/BatteryMonitor';
 import {requestNotificationPermission} from '../services/NotificationService';
 import {
@@ -278,6 +280,7 @@ export default function HomeScreen(): React.JSX.Element {
       setLoaded(true);
       if (savedMonitoring) {
         startMonitoring();
+        await startBackgroundService();
       }
     })();
   }, []);
@@ -312,8 +315,10 @@ export default function HomeScreen(): React.JSX.Element {
     await saveMonitoringEnabled(enabled);
     if (enabled) {
       startMonitoring();
+      await startBackgroundService();
     } else {
       stopMonitoring();
+      await stopBackgroundService();
     }
   }, []);
 

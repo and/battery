@@ -1,5 +1,6 @@
 import DeviceInfo from 'react-native-device-info';
-import {AppState, AppStateStatus, NativeEventEmitter, NativeModules} from 'react-native';
+import {AppState, AppStateStatus, NativeEventEmitter, NativeModules, Platform} from 'react-native';
+import BackgroundService from 'react-native-background-actions';
 import {
   showLowBatteryAlert,
   dismissLowBatteryAlert,
@@ -134,4 +135,36 @@ export function snoozeAlarm(): void {
 
 export function getSnoozedState(): boolean {
   return isSnoozed;
+}
+
+// --- Background service ---
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function backgroundTaskFn(): Promise<void> {
+  while (BackgroundService.isRunning()) {
+    await checkBattery();
+    await sleep(BATTERY_CHECK_INTERVAL_MS);
+  }
+}
+
+const BACKGROUND_SERVICE_OPTIONS = {
+  taskName: 'BatteryMonitor',
+  taskTitle: 'Battery Alert',
+  taskDesc: 'Monitoring battery...',
+  taskIcon: {name: 'ic_launcher', type: 'mipmap' as const},
+};
+
+export async function startBackgroundService(): Promise<void> {
+  if (Platform.OS !== 'android' || BackgroundService.isRunning()) {
+    return;
+  }
+  await BackgroundService.start(backgroundTaskFn, BACKGROUND_SERVICE_OPTIONS);
+}
+
+export async function stopBackgroundService(): Promise<void> {
+  if (Platform.OS !== 'android' || !BackgroundService.isRunning()) {
+    return;
+  }
+  await BackgroundService.stop();
 }

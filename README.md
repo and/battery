@@ -12,7 +12,8 @@ Built for people who forget to charge their phone and end up with a dead battery
 
 - Set a custom battery threshold (5%–50%)
 - Persistent alarm sound that only stops when you plug in
-- Event-driven monitoring with zero background battery drain
+- Background monitoring — alerts fire even when the app is backgrounded or killed (Android)
+- Event-driven monitoring with minimal battery impact
 - Works on both Android and iOS
 - WCAG AA accessible for older users
 - Dark theme to save battery on OLED screens
