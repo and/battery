@@ -482,16 +482,16 @@
           <div class="batt-line"></div>
         </div>
         <div class="batt-fill" id="battFill"></div>
-        <div class="batt-pct" id="battPct">32%</div>
+        <div class="batt-pct" id="battPct">80%</div>
       </div>
-      <div class="batt-label">the alarm plays when battery is this low</div>
+      <div class="batt-label" id="battLabel">battery draining...</div>
 
       <div class="annotation ann-left">
-        sound starts here<br>
+        alarm sounds at 20%<br>
         <span class="ann-arrow">&darr;</span>
       </div>
       <div class="annotation ann-right">
-        plug in your charger<br>to stop the sound
+        plug in to stop<br>
         <span class="ann-arrow">&larr;</span>
       </div>
     </div>
@@ -587,19 +587,45 @@
     }, { threshold: 0.15 });
     els.forEach(el => obs.observe(el));
 
-    // animate battery draining
+    // animate battery: drain to threshold, then refill
     const fill = document.getElementById('battFill');
     const pct = document.getElementById('battPct');
-    let level = 32;
-    let dir = -1;
+    const label = document.getElementById('battLabel');
+    let level = 80;
+    let phase = 'draining'; // draining | alert | charging
+    let pauseFrames = 0;
+
     function tick() {
-      level += dir * 0.3;
-      if (level <= 8) dir = 1;
-      if (level >= 38) dir = -1;
-      fill.style.height = level + '%';
+      if (phase === 'draining') {
+        level -= 0.4;
+        fill.style.background = '#D94F3B';
+        label.textContent = 'battery draining...';
+        if (level <= 20) {
+          phase = 'alert';
+          pauseFrames = 30;
+          fill.style.background = '#D94F3B';
+          label.textContent = 'alarm sounding!';
+        }
+      } else if (phase === 'alert') {
+        pauseFrames--;
+        if (pauseFrames <= 0) {
+          phase = 'charging';
+          label.textContent = 'charger connected';
+        }
+      } else if (phase === 'charging') {
+        level += 0.6;
+        fill.style.background = '#34D399';
+        if (level >= 80) {
+          level = 80;
+          phase = 'draining';
+          fill.style.background = '#D94F3B';
+          label.textContent = 'battery draining...';
+        }
+      }
+      fill.style.height = Math.round(level) + '%';
       pct.textContent = Math.round(level) + '%';
     }
-    setInterval(tick, 200);
+    setInterval(tick, 100);
   </script>
 
 </body>
