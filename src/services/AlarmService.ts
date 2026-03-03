@@ -1,23 +1,29 @@
 import Sound from 'react-native-sound';
-import {Platform} from 'react-native';
 
 // Enable playback in background/silent mode
 Sound.setCategory('Alarm', true);
 
 let alarmSound: Sound | null = null;
 let isPlaying = false;
+let isLoading = false;
 
 export function startAlarm(): void {
-  if (isPlaying) {
+  if (isPlaying || isLoading) {
     return;
   }
 
+  isLoading = true;
+
   // Load the alarm sound from the app bundle
-  const soundFile = Platform.OS === 'android' ? 'alarm.wav' : 'alarm.wav';
+  const soundFile = 'alarm.wav';
 
   alarmSound = new Sound(soundFile, Sound.MAIN_BUNDLE, error => {
+    isLoading = false;
+
     if (error || !alarmSound) {
-      console.warn('Failed to load alarm sound:', error);
+      if (__DEV__) {
+        console.warn('Failed to load alarm sound:', error);
+      }
       return;
     }
 
@@ -27,7 +33,11 @@ export function startAlarm(): void {
 
     alarmSound.play(success => {
       if (!success) {
-        console.warn('Alarm playback failed');
+        if (__DEV__) {
+          console.warn('Alarm playback failed');
+        }
+        // Reset state so alarm can be retried
+        isPlaying = false;
       }
     });
 
@@ -42,6 +52,7 @@ export function stopAlarm(): void {
     alarmSound = null;
   }
   isPlaying = false;
+  isLoading = false;
 }
 
 export function isAlarmPlaying(): boolean {

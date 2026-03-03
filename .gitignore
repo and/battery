@@ -76,3 +76,10 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Secrets & service configs
+.env
+.env.*
+*.jks
+google-services.json
+**/GoogleService-Info.plist

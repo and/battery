@@ -94,9 +94,9 @@ android {
         }
         release {
             storeFile file('battery-alert-release.keystore')
-            storePassword '***REMOVED***'
+            storePassword project.findProperty('BATTERY_ALERT_STORE_PASSWORD') ?: ''
             keyAlias 'battery-alert'
-            keyPassword '***REMOVED***'
+            keyPassword project.findProperty('BATTERY_ALERT_KEY_PASSWORD') ?: ''
         }
     }
     buildTypes {
