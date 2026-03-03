@@ -48,7 +48,7 @@ async function checkBattery(): Promise<void> {
   // Not charging and battery is at or below threshold
   if (batteryPercent <= threshold) {
     await showLowBatteryAlert(batteryPercent);
-    if (!isAlerting && !isSnoozed) {
+    if (!isSnoozed) {
       startAlarm();
     }
     isAlerting = true;
