@@ -117,15 +117,18 @@ export async function hideMonitoringStatusIcon(): Promise<void> {
 }
 
 export function setupNotificationListeners(): void {
-  notifee.onForegroundEvent(({type}) => {
-    if (type === EventType.DISMISSED) {
-      // No-op — alert will only clear when charger is connected
+  notifee.onForegroundEvent(({type, detail}) => {
+    if (type === EventType.DISMISSED &&
+        detail.notification?.id === STATUS_ICON_NOTIFICATION_ID) {
+      // Re-show immediately if user dismisses the status icon
+      showMonitoringStatusIcon();
     }
   });
 
-  notifee.onBackgroundEvent(async ({type}) => {
-    if (type === EventType.DISMISSED) {
-      // No-op
+  notifee.onBackgroundEvent(async ({type, detail}) => {
+    if (type === EventType.DISMISSED &&
+        detail.notification?.id === STATUS_ICON_NOTIFICATION_ID) {
+      await showMonitoringStatusIcon();
     }
   });
 }
