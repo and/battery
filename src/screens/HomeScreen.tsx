@@ -517,7 +517,7 @@ export default function HomeScreen(): React.JSX.Element {
       <FadeIn delay={reduceMotion ? 0 : 400} reduceMotion={reduceMotion}>
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Event-driven {'\u00B7'} Zero background drain
+            Runs in background {'\u00B7'} Minimal battery impact
           </Text>
         </View>
       </FadeIn>
