@@ -5,9 +5,15 @@ import notifee, {
   EventType,
 } from '@notifee/react-native';
 import {Platform, PermissionsAndroid} from 'react-native';
-import {NOTIFICATION_CHANNEL_ID, NOTIFICATION_ID} from '../utils/constants';
+import {
+  NOTIFICATION_CHANNEL_ID,
+  NOTIFICATION_ID,
+  STATUS_ICON_CHANNEL_ID,
+  STATUS_ICON_NOTIFICATION_ID,
+} from '../utils/constants';
 
 let channelCreated = false;
+let statusIconChannelCreated = false;
 
 async function ensureChannel(): Promise<void> {
   if (channelCreated) {
@@ -67,6 +73,47 @@ export async function showLowBatteryAlert(level: number): Promise<void> {
 
 export async function dismissLowBatteryAlert(): Promise<void> {
   await notifee.cancelNotification(NOTIFICATION_ID);
+}
+
+async function ensureStatusIconChannel(): Promise<void> {
+  if (statusIconChannelCreated) {
+    return;
+  }
+  await notifee.createChannel({
+    id: STATUS_ICON_CHANNEL_ID,
+    name: 'Monitoring Status',
+    description: 'Shows when battery monitoring is active',
+    importance: AndroidImportance.LOW,
+    vibration: false,
+  });
+  statusIconChannelCreated = true;
+}
+
+export async function showMonitoringStatusIcon(): Promise<void> {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+  await ensureStatusIconChannel();
+  await notifee.displayNotification({
+    id: STATUS_ICON_NOTIFICATION_ID,
+    title: 'Battery monitoring active',
+    android: {
+      channelId: STATUS_ICON_CHANNEL_ID,
+      smallIcon: 'ic_stat_battery_monitor',
+      ongoing: true,
+      autoCancel: false,
+      pressAction: {id: 'default'},
+      importance: AndroidImportance.LOW,
+      showTimestamp: false,
+    },
+  });
+}
+
+export async function hideMonitoringStatusIcon(): Promise<void> {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+  await notifee.cancelNotification(STATUS_ICON_NOTIFICATION_ID);
 }
 
 export function setupNotificationListeners(): void {

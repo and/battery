@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome horizontal battery outline for status bar (24x24dp) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- Outer battery body + terminal nub; inner rect punched out counter-clockwise -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:pathData="M20,10V8H3v8h17v-2h2v-4h-2zM5,14h13v-4H5z"/>
+</vector>

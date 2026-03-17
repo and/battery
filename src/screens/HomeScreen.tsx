@@ -20,6 +20,8 @@ import {
   setThreshold as saveThreshold,
   getMonitoringEnabled,
   setMonitoringEnabled as saveMonitoringEnabled,
+  getShowStatusIcon,
+  setShowStatusIcon as saveShowStatusIcon,
 } from '../storage/settings';
 import {
   startMonitoring,
@@ -31,7 +33,11 @@ import {
   startBackgroundService,
   stopBackgroundService,
 } from '../services/BatteryMonitor';
-import {requestNotificationPermission} from '../services/NotificationService';
+import {
+  requestNotificationPermission,
+  showMonitoringStatusIcon,
+  hideMonitoringStatusIcon,
+} from '../services/NotificationService';
 import {
   MIN_THRESHOLD,
   MAX_THRESHOLD,
@@ -266,21 +272,27 @@ export default function HomeScreen(): React.JSX.Element {
   const [loaded, setLoaded] = useState(false);
   const [alerting, setAlerting] = useState(false);
   const [snoozed, setSnoozed] = useState(false);
+  const [showStatusIcon, setShowStatusIcon] = useState(true);
   const reduceMotion = useReduceMotion();
 
   useEffect(() => {
     (async () => {
       await requestNotificationPermission();
-      const [savedThreshold, savedMonitoring] = await Promise.all([
+      const [savedThreshold, savedMonitoring, savedStatusIcon] = await Promise.all([
         getThreshold(),
         getMonitoringEnabled(),
+        getShowStatusIcon(),
       ]);
       setThreshold(savedThreshold);
       setMonitoring(savedMonitoring);
+      setShowStatusIcon(savedStatusIcon);
       setLoaded(true);
       if (savedMonitoring) {
         startMonitoring();
         await startBackgroundService();
+        if (savedStatusIcon) {
+          await showMonitoringStatusIcon();
+        }
       }
     })();
   }, []);
@@ -316,11 +328,25 @@ export default function HomeScreen(): React.JSX.Element {
     if (enabled) {
       startMonitoring();
       await startBackgroundService();
+      if (showStatusIcon) {
+        await showMonitoringStatusIcon();
+      }
     } else {
       stopMonitoring();
       await stopBackgroundService();
+      await hideMonitoringStatusIcon();
     }
-  }, []);
+  }, [showStatusIcon]);
+
+  const handleStatusIconToggle = useCallback(async (enabled: boolean) => {
+    setShowStatusIcon(enabled);
+    await saveShowStatusIcon(enabled);
+    if (enabled && monitoring) {
+      await showMonitoringStatusIcon();
+    } else {
+      await hideMonitoringStatusIcon();
+    }
+  }, [monitoring]);
 
   const batteryColors = useMemo(
     () => getBatteryColor(level, threshold),
@@ -512,6 +538,35 @@ export default function HomeScreen(): React.JSX.Element {
           </View>
         </View>
       </FadeIn>
+
+      {/* Status bar icon toggle — Android only */}
+      {Platform.OS === 'android' && (
+        <FadeIn delay={reduceMotion ? 0 : 350} reduceMotion={reduceMotion}>
+          <View style={styles.card}>
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleInfo}>
+                <Text style={styles.cardLabel} accessibilityRole="header">
+                  Status bar icon
+                </Text>
+                <Text style={styles.toggleSub}>
+                  Show icon in status bar while monitoring
+                </Text>
+              </View>
+              <Switch
+                value={showStatusIcon}
+                onValueChange={handleStatusIconToggle}
+                trackColor={{false: '#27272A', true: COLORS.goodDim}}
+                thumbColor={showStatusIcon ? COLORS.good : '#71717A'}
+                ios_backgroundColor="#27272A"
+                accessibilityLabel="Status bar icon"
+                accessibilityHint={`${showStatusIcon ? 'Hide' : 'Show'} status bar icon when monitoring is active`}
+                accessibilityRole="switch"
+                style={styles.switchSize}
+              />
+            </View>
+          </View>
+        </FadeIn>
+      )}
 
       {/* Footer */}
       <FadeIn delay={reduceMotion ? 0 : 400} reduceMotion={reduceMotion}>
