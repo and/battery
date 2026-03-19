@@ -6,28 +6,42 @@ Sound.setCategory('Alarm', true);
 let alarmSound: Sound | null = null;
 let isPlaying = false;
 let isLoading = false;
+let shouldAlarm = false;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+const RETRY_DELAY_MS = 3000;
+
+function clearRetryTimer(): void {
+  if (retryTimer) {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+  }
+}
 
 export function startAlarm(): void {
+  shouldAlarm = true;
+
   if (isPlaying || isLoading) {
     return;
   }
 
+  clearRetryTimer();
   isLoading = true;
 
-  // Load the alarm sound from the app bundle
-  const soundFile = 'alarm.wav';
-
-  alarmSound = new Sound(soundFile, Sound.MAIN_BUNDLE, error => {
+  alarmSound = new Sound('alarm.wav', Sound.MAIN_BUNDLE, error => {
     isLoading = false;
 
     if (error || !alarmSound) {
       if (__DEV__) {
         console.warn('Failed to load alarm sound:', error);
       }
+      // Retry — e.g. audio focus unavailable during a phone call
+      if (shouldAlarm) {
+        retryTimer = setTimeout(startAlarm, RETRY_DELAY_MS);
+      }
       return;
     }
 
-    // Set to loop indefinitely
     alarmSound.setNumberOfLoops(-1);
     alarmSound.setVolume(1.0);
 
@@ -36,8 +50,11 @@ export function startAlarm(): void {
         if (__DEV__) {
           console.warn('Alarm playback failed');
         }
-        // Reset state so alarm can be retried
         isPlaying = false;
+        // Retry — audio focus was lost (e.g. incoming call)
+        if (shouldAlarm) {
+          retryTimer = setTimeout(startAlarm, RETRY_DELAY_MS);
+        }
       }
     });
 
@@ -46,6 +63,8 @@ export function startAlarm(): void {
 }
 
 export function stopAlarm(): void {
+  shouldAlarm = false;
+  clearRetryTimer();
   if (alarmSound) {
     alarmSound.stop();
     alarmSound.release();
