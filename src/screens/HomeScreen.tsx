@@ -25,6 +25,8 @@ import {
   setMonitoringEnabled as saveMonitoringEnabled,
   getShowStatusIcon,
   setShowStatusIcon as saveShowStatusIcon,
+  getBatteryOptAsked,
+  setBatteryOptAsked,
 } from '../storage/settings';
 import {
   startMonitoring,
@@ -297,11 +299,13 @@ export default function HomeScreen(): React.JSX.Element {
           await showMonitoringStatusIcon();
         }
       }
-      // Check every launch — prompt until battery optimization is actually disabled
+      // Prompt until battery optimization is disabled or user has explicitly allowed it
       if (Platform.OS === 'android') {
-        const isIgnoring: boolean =
-          await NativeModules.BatteryOptimization.isIgnoringBatteryOptimizations();
-        if (!isIgnoring) {
+        const [isIgnoring, alreadyActioned] = await Promise.all([
+          NativeModules.BatteryOptimization.isIgnoringBatteryOptimizations(),
+          getBatteryOptAsked(),
+        ]);
+        if (!isIgnoring && !alreadyActioned) {
           Alert.alert(
             'Keep monitoring active',
             'Android can stop battery monitoring during calls or music playback. Tap "Fix Now" to disable battery optimization for this app — it only takes a few seconds.',
@@ -309,8 +313,10 @@ export default function HomeScreen(): React.JSX.Element {
               {text: 'Later', style: 'cancel'},
               {
                 text: 'Fix Now',
-                onPress: () =>
-                  NativeModules.BatteryOptimization.requestIgnoreBatteryOptimizations(),
+                onPress: async () => {
+                  await setBatteryOptAsked();
+                  NativeModules.BatteryOptimization.requestIgnoreBatteryOptimizations();
+                },
               },
             ],
           );
