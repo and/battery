@@ -310,9 +310,7 @@ export default function HomeScreen(): React.JSX.Element {
               {
                 text: 'Fix Now',
                 onPress: () =>
-                  Linking.openURL(
-                    'intent:#Intent;action=android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS;data=package:com.anddev.batteryalert;end',
-                  ),
+                  NativeModules.BatteryOptimization.requestIgnoreBatteryOptimizations(),
               },
             ],
           );
