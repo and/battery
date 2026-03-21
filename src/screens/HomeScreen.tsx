@@ -13,6 +13,7 @@ import {
   useColorScheme,
   Pressable,
   Linking,
+  Alert,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import {useBatteryStatus} from '../hooks/useBatteryStatus';
@@ -302,9 +303,13 @@ export default function HomeScreen(): React.JSX.Element {
       // Ask once to disable battery optimization so Android doesn't kill the service
       if (Platform.OS === 'android' && !batteryOptAsked) {
         await setBatteryOptAsked();
-        await Linking.sendIntent(
-          'android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
-          [{key: 'package', value: 'com.anddev.batteryalert'}],
+        Alert.alert(
+          'Keep monitoring active',
+          'To prevent Android from stopping battery monitoring during calls or music playback, disable battery optimization for this app.\n\nTap "Open Settings", then go to Battery → App battery usage → Battery Alert → Unrestricted.',
+          [
+            {text: 'Later', style: 'cancel'},
+            {text: 'Open Settings', onPress: () => Linking.openSettings()},
+          ],
         );
       }
     })();
