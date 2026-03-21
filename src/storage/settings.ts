@@ -4,6 +4,7 @@ import {DEFAULT_THRESHOLD} from '../utils/constants';
 const THRESHOLD_KEY = '@battery_threshold';
 const MONITORING_KEY = '@monitoring_enabled';
 const STATUS_ICON_KEY = '@status_icon_enabled';
+const BATTERY_OPT_ASKED_KEY = '@battery_opt_asked';
 
 export async function getThreshold(): Promise<number> {
   const value = await AsyncStorage.getItem(THRESHOLD_KEY);
@@ -30,4 +31,13 @@ export async function getShowStatusIcon(): Promise<boolean> {
 
 export async function setShowStatusIcon(enabled: boolean): Promise<void> {
   await AsyncStorage.setItem(STATUS_ICON_KEY, enabled.toString());
+}
+
+export async function getBatteryOptAsked(): Promise<boolean> {
+  const value = await AsyncStorage.getItem(BATTERY_OPT_ASKED_KEY);
+  return value === 'true';
+}
+
+export async function setBatteryOptAsked(): Promise<void> {
+  await AsyncStorage.setItem(BATTERY_OPT_ASKED_KEY, 'true');
 }

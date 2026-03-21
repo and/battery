@@ -12,6 +12,7 @@ import {
   AccessibilityInfo,
   useColorScheme,
   Pressable,
+  Linking,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import {useBatteryStatus} from '../hooks/useBatteryStatus';
@@ -22,6 +23,8 @@ import {
   setMonitoringEnabled as saveMonitoringEnabled,
   getShowStatusIcon,
   setShowStatusIcon as saveShowStatusIcon,
+  getBatteryOptAsked,
+  setBatteryOptAsked,
 } from '../storage/settings';
 import {
   startMonitoring,
@@ -278,11 +281,13 @@ export default function HomeScreen(): React.JSX.Element {
   useEffect(() => {
     (async () => {
       await requestNotificationPermission();
-      const [savedThreshold, savedMonitoring, savedStatusIcon] = await Promise.all([
-        getThreshold(),
-        getMonitoringEnabled(),
-        getShowStatusIcon(),
-      ]);
+      const [savedThreshold, savedMonitoring, savedStatusIcon, batteryOptAsked] =
+        await Promise.all([
+          getThreshold(),
+          getMonitoringEnabled(),
+          getShowStatusIcon(),
+          getBatteryOptAsked(),
+        ]);
       setThreshold(savedThreshold);
       setMonitoring(savedMonitoring);
       setShowStatusIcon(savedStatusIcon);
@@ -293,6 +298,14 @@ export default function HomeScreen(): React.JSX.Element {
         if (savedStatusIcon) {
           await showMonitoringStatusIcon();
         }
+      }
+      // Ask once to disable battery optimization so Android doesn't kill the service
+      if (Platform.OS === 'android' && !batteryOptAsked) {
+        await setBatteryOptAsked();
+        await Linking.sendIntent(
+          'android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
+          [{key: 'package', value: 'com.anddev.batteryalert'}],
+        );
       }
     })();
   }, []);
