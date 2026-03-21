@@ -14,6 +14,7 @@ import {
   Pressable,
   Linking,
   Alert,
+  NativeModules,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import {useBatteryStatus} from '../hooks/useBatteryStatus';
@@ -24,8 +25,6 @@ import {
   setMonitoringEnabled as saveMonitoringEnabled,
   getShowStatusIcon,
   setShowStatusIcon as saveShowStatusIcon,
-  getBatteryOptAsked,
-  setBatteryOptAsked,
 } from '../storage/settings';
 import {
   startMonitoring,
@@ -282,13 +281,11 @@ export default function HomeScreen(): React.JSX.Element {
   useEffect(() => {
     (async () => {
       await requestNotificationPermission();
-      const [savedThreshold, savedMonitoring, savedStatusIcon, batteryOptAsked] =
-        await Promise.all([
-          getThreshold(),
-          getMonitoringEnabled(),
-          getShowStatusIcon(),
-          getBatteryOptAsked(),
-        ]);
+      const [savedThreshold, savedMonitoring, savedStatusIcon] = await Promise.all([
+        getThreshold(),
+        getMonitoringEnabled(),
+        getShowStatusIcon(),
+      ]);
       setThreshold(savedThreshold);
       setMonitoring(savedMonitoring);
       setShowStatusIcon(savedStatusIcon);
@@ -300,17 +297,26 @@ export default function HomeScreen(): React.JSX.Element {
           await showMonitoringStatusIcon();
         }
       }
-      // Ask once to disable battery optimization so Android doesn't kill the service
-      if (Platform.OS === 'android' && !batteryOptAsked) {
-        await setBatteryOptAsked();
-        Alert.alert(
-          'Keep monitoring active',
-          'To prevent Android from stopping battery monitoring during calls or music playback, disable battery optimization for this app.\n\nTap "Open Settings", then go to Battery → App battery usage → Battery Alert → Unrestricted.',
-          [
-            {text: 'Later', style: 'cancel'},
-            {text: 'Open Settings', onPress: () => Linking.openSettings()},
-          ],
-        );
+      // Check every launch — prompt until battery optimization is actually disabled
+      if (Platform.OS === 'android') {
+        const isIgnoring: boolean =
+          await NativeModules.BatteryOptimization.isIgnoringBatteryOptimizations();
+        if (!isIgnoring) {
+          Alert.alert(
+            'Keep monitoring active',
+            'Android can stop battery monitoring during calls or music playback. Tap "Fix Now" to disable battery optimization for this app — it only takes a few seconds.',
+            [
+              {text: 'Later', style: 'cancel'},
+              {
+                text: 'Fix Now',
+                onPress: () =>
+                  Linking.openURL(
+                    'intent:#Intent;action=android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS;data=package:com.anddev.batteryalert;end',
+                  ),
+              },
+            ],
+          );
+        }
       }
     })();
   }, []);
