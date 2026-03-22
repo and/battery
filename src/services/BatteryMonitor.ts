@@ -152,7 +152,7 @@ const BACKGROUND_SERVICE_OPTIONS = {
   taskName: 'BatteryMonitor',
   taskTitle: 'Battery Alert',
   taskDesc: 'Monitoring battery...',
-  taskIcon: {name: 'ic_launcher', type: 'mipmap' as const},
+  taskIcon: {name: 'ic_stat_battery_monitor', type: 'drawable' as const},
 };
 
 export async function startBackgroundService(): Promise<void> {
