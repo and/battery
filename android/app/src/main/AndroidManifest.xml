@@ -7,7 +7,7 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
       android:name=".MainApplication"
@@ -32,7 +32,11 @@
       </activity>
       <service
         android:name="com.asterinet.react.bgactions.RNBackgroundActionsTask"
-        android:foregroundServiceType="health" />
+        android:foregroundServiceType="specialUse">
+        <property
+          android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+          android:value="Monitors device battery level and alerts the user when it falls below a set threshold." />
+      </service>
       <receiver
         android:name=".BootReceiver"
         android:exported="true">
