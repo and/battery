@@ -25,7 +25,10 @@ import {
   setMonitoringEnabled as saveMonitoringEnabled,
   getBatteryOptAsked,
   setBatteryOptAsked,
+  getNothingBgAsked,
+  setNothingBgAsked,
 } from '../storage/settings';
+import DeviceInfo from 'react-native-device-info';
 import {
   startMonitoring,
   stopMonitoring,
@@ -289,10 +292,14 @@ export default function HomeScreen(): React.JSX.Element {
       }
       // Prompt until battery optimization is disabled or user has explicitly allowed it
       if (Platform.OS === 'android') {
-        const [isIgnoring, alreadyActioned] = await Promise.all([
-          NativeModules.BatteryOptimization.isIgnoringBatteryOptimizations(),
-          getBatteryOptAsked(),
-        ]);
+        const [isIgnoring, alreadyActioned, nothingAsked, manufacturer] =
+          await Promise.all([
+            NativeModules.BatteryOptimization.isIgnoringBatteryOptimizations(),
+            getBatteryOptAsked(),
+            getNothingBgAsked(),
+            DeviceInfo.getManufacturer(),
+          ]);
+
         if (!isIgnoring && !alreadyActioned) {
           Alert.alert(
             'Keep monitoring active',
@@ -306,6 +313,18 @@ export default function HomeScreen(): React.JSX.Element {
                   NativeModules.BatteryOptimization.requestIgnoreBatteryOptimizations();
                 },
               },
+            ],
+          );
+        }
+
+        if (manufacturer.toLowerCase() === 'nothing' && !nothingAsked) {
+          await setNothingBgAsked();
+          Alert.alert(
+            'One more step for Nothing Phone',
+            'Nothing OS has an extra background activity setting. To keep monitoring running at all times:\n\nTap "Open Settings" → Battery → set to Unrestricted.',
+            [
+              {text: 'Later', style: 'cancel'},
+              {text: 'Open Settings', onPress: () => Linking.openSettings()},
             ],
           );
         }
