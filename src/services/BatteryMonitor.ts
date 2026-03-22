@@ -15,6 +15,7 @@ let isSnoozed = false;
 let snoozeTimerId: ReturnType<typeof setTimeout> | null = null;
 let appStateSubscription: {remove: () => void} | null = null;
 let powerStateSubscription: {remove: () => void} | null = null;
+let deviceInfoEmitter: NativeEventEmitter | null = null;
 
 async function checkBattery(): Promise<void> {
   const enabled = await getMonitoringEnabled();
@@ -71,7 +72,9 @@ export function startMonitoring(): void {
 
   // Listen for power state changes (charger connect/disconnect)
   // This is event-driven and fires instantly when charging state changes
-  const deviceInfoEmitter = new NativeEventEmitter(NativeModules.RNDeviceInfo);
+  if (!deviceInfoEmitter) {
+    deviceInfoEmitter = new NativeEventEmitter(NativeModules.RNDeviceInfo);
+  }
   powerStateSubscription = deviceInfoEmitter.addListener(
     'RNDeviceInfo_powerStateDidChange',
     () => {
@@ -86,7 +89,7 @@ export function startMonitoring(): void {
   appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
 }
 
-export function stopMonitoring(): void {
+export async function stopMonitoring(): Promise<void> {
   if (intervalId) {
     clearInterval(intervalId);
     intervalId = null;
@@ -100,7 +103,11 @@ export function stopMonitoring(): void {
     powerStateSubscription = null;
   }
   if (isAlerting) {
-    dismissLowBatteryAlert();
+    try {
+      await dismissLowBatteryAlert();
+    } catch (error) {
+      console.error('[BatteryMonitor] Failed to dismiss alert:', error);
+    }
     stopAlarm();
     isAlerting = false;
   }
@@ -142,10 +149,24 @@ export function getSnoozedState(): boolean {
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function backgroundTaskFn(): Promise<void> {
+  console.log('[BatteryMonitor] Background task started');
   while (BackgroundService.isRunning()) {
-    await checkBattery();
+    try {
+      await checkBattery();
+    } catch (error) {
+      console.error('[BatteryMonitor] checkBattery error:', error);
+    }
     await sleep(BATTERY_CHECK_INTERVAL_MS);
   }
+  console.log('[BatteryMonitor] Background task stopped');
+}
+
+export async function headlessTask(): Promise<void> {
+  const enabled = await getMonitoringEnabled();
+  if (!enabled) {
+    return;
+  }
+  await backgroundTaskFn();
 }
 
 const BACKGROUND_SERVICE_OPTIONS = {

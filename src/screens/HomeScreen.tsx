@@ -364,7 +364,7 @@ export default function HomeScreen(): React.JSX.Element {
       startMonitoring();
       await startBackgroundService();
     } else {
-      stopMonitoring();
+      await stopMonitoring();
       await stopBackgroundService();
     }
   }, []);
