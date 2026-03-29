@@ -4,7 +4,11 @@ import notifee, {
   AuthorizationStatus,
 } from '@notifee/react-native';
 import {Platform, PermissionsAndroid} from 'react-native';
-import {NOTIFICATION_CHANNEL_ID, NOTIFICATION_ID} from '../utils/constants';
+import {
+  NOTIFICATION_CHANNEL_ID,
+  NOTIFICATION_ID,
+  OVERCHARGE_NOTIFICATION_ID,
+} from '../utils/constants';
 
 let channelCreated = false;
 
@@ -66,6 +70,30 @@ export async function showLowBatteryAlert(level: number): Promise<void> {
 
 export async function dismissLowBatteryAlert(): Promise<void> {
   await notifee.cancelNotification(NOTIFICATION_ID);
+}
+
+export async function showOverchargeAlert(): Promise<void> {
+  await ensureChannel();
+  await notifee.displayNotification({
+    id: OVERCHARGE_NOTIFICATION_ID,
+    title: 'Battery Fully Charged',
+    body: 'Your battery has been at 100% for 30+ minutes. Unplug to protect battery health.',
+    android: {
+      channelId: NOTIFICATION_CHANNEL_ID,
+      importance: AndroidImportance.DEFAULT,
+      ongoing: false,
+      autoCancel: true,
+      pressAction: {id: 'default'},
+    },
+    ios: {
+      sound: undefined,
+      interruptionLevel: 'passive',
+    },
+  });
+}
+
+export async function dismissOverchargeAlert(): Promise<void> {
+  await notifee.cancelNotification(OVERCHARGE_NOTIFICATION_ID);
 }
 
 export function setupNotificationListeners(): void {

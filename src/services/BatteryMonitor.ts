@@ -4,10 +4,27 @@ import BackgroundService from 'react-native-background-actions';
 import {
   showLowBatteryAlert,
   dismissLowBatteryAlert,
+  showOverchargeAlert,
+  dismissOverchargeAlert,
 } from './NotificationService';
 import {startAlarm, stopAlarm} from './AlarmService';
-import {getThreshold, getMonitoringEnabled} from '../storage/settings';
-import {BATTERY_CHECK_INTERVAL_MS, SNOOZE_DURATION_MS} from '../utils/constants';
+import {
+  getThreshold,
+  getMonitoringEnabled,
+  getOverchargeAlertEnabled,
+  getSleepEnabled,
+  getSleepStartHour,
+  getSleepEndHour,
+  getChargingSessions,
+  saveChargingSessions,
+  ChargingSession,
+} from '../storage/settings';
+import {
+  BATTERY_CHECK_INTERVAL_MS,
+  SNOOZE_DURATION_MS,
+  OVERCHARGE_DELAY_MS,
+} from '../utils/constants';
+import {isInSleepHours} from '../utils/timeUtils';
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
 let isAlerting = false;
@@ -17,6 +34,14 @@ let appStateSubscription: {remove: () => void} | null = null;
 let powerStateSubscription: {remove: () => void} | null = null;
 let deviceInfoEmitter: NativeEventEmitter | null = null;
 
+// Overcharge tracking
+let overchargeTimerId: ReturnType<typeof setTimeout> | null = null;
+let isOverchargeAlerting = false;
+
+// Charging session tracking
+let currentSession: {startLevel: number; startTime: number} | null = null;
+const MAX_SESSIONS = 30;
+
 async function checkBattery(): Promise<void> {
   const enabled = await getMonitoringEnabled();
   if (!enabled) {
@@ -24,6 +49,7 @@ async function checkBattery(): Promise<void> {
       await dismissLowBatteryAlert();
       isAlerting = false;
     }
+    clearOverchargeTimer();
     return;
   }
 
@@ -37,23 +63,111 @@ async function checkBattery(): Promise<void> {
   const threshold = await getThreshold();
 
   if (isCharging) {
+    // Dismiss low-battery alert if charger was just plugged in
     if (isAlerting) {
       await dismissLowBatteryAlert();
       stopAlarm();
       isAlerting = false;
     }
     clearSnooze();
+
+    // Overcharge detection: start timer when battery hits 100%
+    await checkOvercharge(batteryPercent);
+
+    // Session tracking: record session start if this is a new charge
+    if (currentSession === null) {
+      currentSession = {startLevel: batteryPercent, startTime: Date.now()};
+    }
     return;
+  }
+
+  // Not charging — clear overcharge timer and dismiss any overcharge alert
+  if (overchargeTimerId || isOverchargeAlerting) {
+    clearOverchargeTimer();
+    await dismissOverchargeAlert();
+    isOverchargeAlerting = false;
+  }
+
+  // Session tracking: record session end when charger is unplugged
+  if (currentSession !== null) {
+    await recordSessionEnd(batteryPercent);
   }
 
   // Not charging and battery is at or below threshold
   if (batteryPercent <= threshold) {
     await showLowBatteryAlert(batteryPercent);
     if (!isSnoozed) {
-      startAlarm();
+      const inSleep = await shouldSuppressAlarm();
+      if (!inSleep) {
+        startAlarm();
+      }
     }
     isAlerting = true;
   }
+}
+
+async function checkOvercharge(batteryPercent: number): Promise<void> {
+  const overchargeEnabled = await getOverchargeAlertEnabled();
+  if (!overchargeEnabled) {
+    clearOverchargeTimer();
+    return;
+  }
+
+  if (batteryPercent >= 100) {
+    // Start the overcharge timer if not already running
+    if (overchargeTimerId === null && !isOverchargeAlerting) {
+      overchargeTimerId = setTimeout(async () => {
+        overchargeTimerId = null;
+        isOverchargeAlerting = true;
+        await showOverchargeAlert();
+      }, OVERCHARGE_DELAY_MS);
+    }
+  } else {
+    // Battery below 100% while charging — clear any pending overcharge timer
+    clearOverchargeTimer();
+    if (isOverchargeAlerting) {
+      await dismissOverchargeAlert();
+      isOverchargeAlerting = false;
+    }
+  }
+}
+
+function clearOverchargeTimer(): void {
+  if (overchargeTimerId) {
+    clearTimeout(overchargeTimerId);
+    overchargeTimerId = null;
+  }
+}
+
+async function shouldSuppressAlarm(): Promise<boolean> {
+  const sleepEnabled = await getSleepEnabled();
+  if (!sleepEnabled) {
+    return false;
+  }
+  const [startHour, endHour] = await Promise.all([
+    getSleepStartHour(),
+    getSleepEndHour(),
+  ]);
+  return isInSleepHours(startHour, endHour);
+}
+
+async function recordSessionEnd(endLevel: number): Promise<void> {
+  if (!currentSession) {
+    return;
+  }
+  const session: ChargingSession = {
+    startLevel: currentSession.startLevel,
+    endLevel,
+    startTime: currentSession.startTime,
+    endTime: Date.now(),
+  };
+  currentSession = null;
+
+  const sessions = await getChargingSessions();
+  sessions.push(session);
+  // Keep only the most recent MAX_SESSIONS
+  const trimmed = sessions.slice(-MAX_SESSIONS);
+  await saveChargingSessions(trimmed);
 }
 
 function handleAppStateChange(nextState: AppStateStatus): void {
@@ -111,6 +225,7 @@ export async function stopMonitoring(): Promise<void> {
     stopAlarm();
     isAlerting = false;
   }
+  clearOverchargeTimer();
   clearSnooze();
 }
 
