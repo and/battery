@@ -28,7 +28,7 @@ export function startAlarm(): void {
   clearRetryTimer();
   isLoading = true;
 
-  alarmSound = new Sound('alarm.wav', Sound.MAIN_BUNDLE, error => {
+  alarmSound = new Sound('alarm', Sound.MAIN_BUNDLE, error => {
     isLoading = false;
 
     if (error || !alarmSound) {
@@ -45,16 +45,13 @@ export function startAlarm(): void {
     alarmSound.setNumberOfLoops(-1);
     alarmSound.setVolume(1.0);
 
-    alarmSound.play(success => {
-      if (!success) {
-        if (__DEV__) {
-          console.warn('Alarm playback failed');
-        }
-        isPlaying = false;
-        // Retry — audio focus was lost (e.g. incoming call)
-        if (shouldAlarm) {
-          retryTimer = setTimeout(startAlarm, RETRY_DELAY_MS);
-        }
+    alarmSound.play(() => {
+      // Fires on completion OR error. Either way, restart if still alarming.
+      // (setNumberOfLoops races with play() on New Arch Turbo modules, so
+      // looping may not activate — we restart manually as a reliable fallback.)
+      isPlaying = false;
+      if (shouldAlarm) {
+        retryTimer = setTimeout(startAlarm, RETRY_DELAY_MS);
       }
     });
 

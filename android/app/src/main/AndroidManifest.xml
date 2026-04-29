@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <application
       android:name=".MainApplication"
@@ -38,11 +39,24 @@
           android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
           android:value="Monitors device battery level and alerts the user when it falls below a set threshold." />
       </service>
+      <service
+        android:name=".NativeAlarmService"
+        android:foregroundServiceType="mediaPlayback"
+        android:stopWithTask="false" />
       <receiver
         android:name=".BootReceiver"
         android:exported="true">
         <intent-filter>
           <action android:name="android.intent.action.BOOT_COMPLETED" />
+        </intent-filter>
+      </receiver>
+      <receiver
+        android:name=".BatteryAlertReceiver"
+        android:exported="false">
+        <intent-filter>
+          <action android:name="android.intent.action.BATTERY_LOW" />
+          <action android:name="android.intent.action.BATTERY_OKAY" />
+          <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
         </intent-filter>
       </receiver>
     </application>
