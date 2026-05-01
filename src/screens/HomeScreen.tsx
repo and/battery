@@ -49,34 +49,60 @@ import {
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
 const GAUGE_SIZE = Math.min(SCREEN_WIDTH * 0.52, 220);
 
-// --- WCAG AA compliant color system ---
-// All text colors tested against bg #09090B for 4.5:1+ contrast ratio
-const COLORS = {
+// --- WCAG AA compliant color palettes ---
+
+const DARK_COLORS = {
   bg: '#09090B',
   surface: '#131316',
-  surfaceBorder: '#2A2A32',        // raised from #1E1E24 for visibility
-  critical: '#F87171',             // raised from #EF4444 → 5.2:1 on bg
+  surfaceBorder: '#2A2A32',
+  critical: '#F87171',             // 5.2:1 on dark bg
   criticalDim: '#7F1D1D',
   criticalGlow: '#EF444440',
-  warning: '#FBBF24',             // raised from #F59E0B → 9.8:1 on bg
+  warning: '#FBBF24',             // 9.8:1 on dark bg
   warningDim: '#78350F',
-  good: '#34D399',                // raised from #10B981 → 7.4:1 on bg
+  warningGlow: '#FBBF2425',
+  good: '#34D399',                // 7.4:1 on dark bg
   goodDim: '#064E3B',
   goodGlow: '#10B98130',
-  textPrimary: '#FAFAFA',         // 19.5:1 on bg
-  textSecondary: '#A1A1AA',       // raised from #71717A → 7.1:1 on bg
-  textMuted: '#71717A',           // 4.6:1 on bg - for large text only
-  gaugeInactive: '#2A2A32',       // visible inactive segments
+  textPrimary: '#FAFAFA',
+  textSecondary: '#A1A1AA',
+  textMuted: '#71717A',
+  gaugeInactive: '#2A2A32',
+  switchTrackOff: '#27272A',
+  switchThumbOff: '#71717A',
 };
 
-function getBatteryColor(level: number, threshold: number) {
+const LIGHT_COLORS = {
+  bg: '#F4F4F5',
+  surface: '#FFFFFF',
+  surfaceBorder: '#D4D4D8',
+  critical: '#DC2626',             // 5.9:1 on light bg
+  criticalDim: '#FEE2E2',
+  criticalGlow: '#DC262640',
+  warning: '#B45309',             // 4.9:1 on light bg
+  warningDim: '#FEF3C7',
+  warningGlow: '#B4530925',
+  good: '#059669',                // 4.6:1 on light bg
+  goodDim: '#D1FAE5',
+  goodGlow: '#05966930',
+  textPrimary: '#18181B',
+  textSecondary: '#52525B',
+  textMuted: '#71717A',
+  gaugeInactive: '#D4D4D8',
+  switchTrackOff: '#D4D4D8',
+  switchThumbOff: '#A1A1AA',
+};
+
+type ThemeColors = typeof DARK_COLORS;
+
+function getBatteryColor(level: number, threshold: number, colors: ThemeColors) {
   if (level <= threshold) {
-    return {main: COLORS.critical, dim: COLORS.criticalDim, glow: COLORS.criticalGlow};
+    return {main: colors.critical, dim: colors.criticalDim, glow: colors.criticalGlow};
   }
   if (level <= 35) {
-    return {main: COLORS.warning, dim: COLORS.warningDim, glow: '#FBBF2425'};
+    return {main: colors.warning, dim: colors.warningDim, glow: colors.warningGlow};
   }
-  return {main: COLORS.good, dim: COLORS.goodDim, glow: COLORS.goodGlow};
+  return {main: colors.good, dim: colors.goodDim, glow: colors.goodGlow};
 }
 
 function getBatteryStateDescription(
@@ -180,10 +206,12 @@ function PulsingRing({
 function GaugeRing({
   level,
   color,
+  inactiveColor,
   size,
 }: {
   level: number;
   color: string;
+  inactiveColor: string;
   size: number;
 }) {
   const segments = 40;
@@ -212,7 +240,7 @@ function GaugeRing({
                 width: 4,
                 height: 11,
                 borderRadius: 2,
-                backgroundColor: isActive ? color : COLORS.gaugeInactive,
+                backgroundColor: isActive ? color : inactiveColor,
                 opacity: isActive ? 1 : 0.5,
               }}
             />
@@ -267,6 +295,195 @@ function FadeIn({
   );
 }
 
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bg,
+      paddingTop: Platform.OS === 'ios' ? 64 : 44,
+      paddingHorizontal: 20,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 28,
+      paddingHorizontal: 4,
+      minHeight: 44,
+    },
+    appTitle: {
+      color: colors.textPrimary,
+      fontSize: 15,
+      fontWeight: '700',
+      letterSpacing: 3,
+    },
+    statusPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      minHeight: 44,
+    },
+    statusDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      marginRight: 8,
+    },
+    statusText: {
+      fontSize: 13,
+      fontWeight: '600',
+      letterSpacing: 1.5,
+    },
+    gaugeContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: GAUGE_SIZE + 40,
+      marginBottom: 28,
+    },
+    gaugeCenter: {
+      position: 'absolute',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    gaugePercent: {
+      fontSize: 56,
+      fontWeight: '200',
+      fontVariant: ['tabular-nums'],
+      includeFontPadding: false,
+    },
+    gaugePercentSign: {
+      color: colors.textSecondary,
+      fontSize: 20,
+      fontWeight: '300',
+      marginTop: -6,
+    },
+    chargingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 6,
+    },
+    chargingBolt: {
+      fontSize: 16,
+      marginRight: 4,
+    },
+    chargingLabel: {
+      fontSize: 14,
+      fontWeight: '500',
+      letterSpacing: 0.3,
+    },
+    snoozeButton: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.critical,
+      paddingVertical: 14,
+      marginBottom: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 48,
+    },
+    snoozeButtonPressed: {
+      opacity: 0.7,
+    },
+    snoozeButtonText: {
+      color: colors.critical,
+      fontSize: 16,
+      fontWeight: '600',
+      letterSpacing: 0.5,
+    },
+    snoozedLabel: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      paddingVertical: 14,
+      marginBottom: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 48,
+    },
+    snoozedText: {
+      color: colors.textSecondary,
+      fontSize: 16,
+      fontWeight: '600',
+      letterSpacing: 0.5,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      padding: 20,
+      marginBottom: 12,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 14,
+    },
+    cardLabel: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+      letterSpacing: 1.5,
+    },
+    thresholdBadge: {
+      fontSize: 22,
+      fontWeight: '300',
+      fontVariant: ['tabular-nums'],
+    },
+    slider: {
+      width: '100%',
+      height: 44,
+    },
+    sliderLabels: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 2,
+    },
+    sliderLabel: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontVariant: ['tabular-nums'],
+    },
+    toggleRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      minHeight: 48,
+    },
+    toggleInfo: {
+      flex: 1,
+      marginRight: 16,
+    },
+    toggleSub: {
+      color: colors.textSecondary,
+      fontSize: 14,
+      marginTop: 6,
+      lineHeight: 20,
+    },
+    switchSize: {
+      transform: [{scale: 1.1}],
+    },
+    footer: {
+      marginTop: 'auto',
+      marginBottom: 36,
+      alignItems: 'center',
+    },
+    footerText: {
+      color: colors.textMuted,
+      fontSize: 13,
+      letterSpacing: 0.3,
+    },
+  });
+}
+
 export default function HomeScreen(): React.JSX.Element {
   const {level, isCharging} = useBatteryStatus();
   const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
@@ -275,6 +492,10 @@ export default function HomeScreen(): React.JSX.Element {
   const [alerting, setAlerting] = useState(false);
   const [snoozed, setSnoozed] = useState(false);
   const reduceMotion = useReduceMotion();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme !== 'light';
+  const colors = isDark ? DARK_COLORS : LIGHT_COLORS;
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   useEffect(() => {
     (async () => {
@@ -290,7 +511,6 @@ export default function HomeScreen(): React.JSX.Element {
         startMonitoring();
         await startBackgroundService();
       }
-      // Prompt until battery optimization is disabled or user has explicitly allowed it
       if (Platform.OS === 'android') {
         const [isIgnoring, alreadyActioned, nothingAsked, manufacturer] =
           await Promise.all([
@@ -370,8 +590,8 @@ export default function HomeScreen(): React.JSX.Element {
   }, []);
 
   const batteryColors = useMemo(
-    () => getBatteryColor(level, threshold),
-    [level, threshold],
+    () => getBatteryColor(level, threshold, colors),
+    [level, threshold, colors],
   );
   const isCritical = level <= threshold;
   const batteryDescription = useMemo(
@@ -382,14 +602,20 @@ export default function HomeScreen(): React.JSX.Element {
   if (!loaded) {
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          backgroundColor={colors.bg}
+        />
       </View>
     );
   }
 
   return (
     <View style={styles.container} accessibilityRole="summary">
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.bg}
+      />
 
       {/* Header */}
       <FadeIn delay={0} reduceMotion={reduceMotion}>
@@ -405,13 +631,13 @@ export default function HomeScreen(): React.JSX.Element {
             <View
               style={[
                 styles.statusDot,
-                {backgroundColor: monitoring ? COLORS.good : COLORS.textMuted},
+                {backgroundColor: monitoring ? colors.good : colors.textMuted},
               ]}
             />
             <Text
               style={[
                 styles.statusText,
-                {color: monitoring ? COLORS.good : COLORS.textSecondary},
+                {color: monitoring ? colors.good : colors.textSecondary},
               ]}>
               {monitoring ? 'ACTIVE' : 'OFF'}
             </Text>
@@ -435,6 +661,7 @@ export default function HomeScreen(): React.JSX.Element {
           <GaugeRing
             level={level}
             color={batteryColors.main}
+            inactiveColor={colors.gaugeInactive}
             size={GAUGE_SIZE}
           />
           <View style={styles.gaugeCenter}>
@@ -453,13 +680,13 @@ export default function HomeScreen(): React.JSX.Element {
                 <Text
                   style={styles.chargingBolt}
                   accessibilityElementsHidden={true}>
-                  {'\u26A1'}
+                  {'⚡'}
                 </Text>
               )}
               <Text
                 style={[
                   styles.chargingLabel,
-                  {color: isCharging ? COLORS.good : COLORS.textSecondary},
+                  {color: isCharging ? colors.good : colors.textSecondary},
                 ]}
                 accessibilityElementsHidden={true}>
                 {isCharging ? 'Charging' : 'On Battery'}
@@ -506,7 +733,7 @@ export default function HomeScreen(): React.JSX.Element {
               Alert Threshold
             </Text>
             <Text
-              style={[styles.thresholdBadge, {color: COLORS.critical}]}
+              style={[styles.thresholdBadge, {color: colors.critical}]}
               accessibilityLabel={`Current threshold: ${threshold}%`}>
               {threshold}%
             </Text>
@@ -519,9 +746,9 @@ export default function HomeScreen(): React.JSX.Element {
             value={threshold}
             onValueChange={handleThresholdSlide}
             onSlidingComplete={handleThresholdCommit}
-            minimumTrackTintColor={COLORS.critical}
-            maximumTrackTintColor={COLORS.surfaceBorder}
-            thumbTintColor={COLORS.critical}
+            minimumTrackTintColor={colors.critical}
+            maximumTrackTintColor={colors.surfaceBorder}
+            thumbTintColor={colors.critical}
             accessibilityLabel="Battery alert threshold"
             accessibilityHint={`Slide to set the battery level that triggers an alert. Currently set to ${threshold}%`}
             accessibilityRole="adjustable"
@@ -548,9 +775,9 @@ export default function HomeScreen(): React.JSX.Element {
             <Switch
               value={monitoring}
               onValueChange={handleMonitoringToggle}
-              trackColor={{false: '#27272A', true: COLORS.goodDim}}
-              thumbColor={monitoring ? COLORS.good : '#71717A'}
-              ios_backgroundColor="#27272A"
+              trackColor={{false: colors.switchTrackOff, true: colors.goodDim}}
+              thumbColor={monitoring ? colors.good : colors.switchThumbOff}
+              ios_backgroundColor={colors.switchTrackOff}
               accessibilityLabel="Battery monitoring"
               accessibilityHint={`${monitoring ? 'Disable' : 'Enable'} battery monitoring alerts`}
               accessibilityRole="switch"
@@ -564,211 +791,10 @@ export default function HomeScreen(): React.JSX.Element {
       <FadeIn delay={reduceMotion ? 0 : 400} reduceMotion={reduceMotion}>
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Runs in background {'\u00B7'} Minimal battery impact
+            Runs in background {'·'} Minimal battery impact
           </Text>
         </View>
       </FadeIn>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-    paddingTop: Platform.OS === 'ios' ? 64 : 44,
-    paddingHorizontal: 20,
-  },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 28,
-    paddingHorizontal: 4,
-    minHeight: 44, // WCAG touch target
-  },
-  appTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 15,                   // raised from 14
-    fontWeight: '700',
-    letterSpacing: 3,
-  },
-  statusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 20,
-    paddingVertical: 10,            // raised for 44pt touch target
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: COLORS.surfaceBorder,
-    minHeight: 44,                  // WCAG touch target
-  },
-  statusDot: {
-    width: 8,                       // raised from 6
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  statusText: {
-    fontSize: 13,                   // raised from 11
-    fontWeight: '600',
-    letterSpacing: 1.5,
-  },
-
-  // Gauge
-  gaugeContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: GAUGE_SIZE + 40,
-    marginBottom: 28,
-  },
-  gaugeCenter: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gaugePercent: {
-    fontSize: 56,                   // large text - 3:1 ratio sufficient
-    fontWeight: '200',
-    fontVariant: ['tabular-nums'],
-    includeFontPadding: false,
-  },
-  gaugePercentSign: {
-    color: COLORS.textSecondary,    // raised from textTertiary → 7.1:1
-    fontSize: 20,                   // raised from 18
-    fontWeight: '300',
-    marginTop: -6,
-  },
-  chargingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  chargingBolt: {
-    fontSize: 16,                   // raised from 13
-    marginRight: 4,
-  },
-  chargingLabel: {
-    fontSize: 14,                   // raised from 12
-    fontWeight: '500',
-    letterSpacing: 0.3,
-  },
-
-  // Snooze
-  snoozeButton: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.critical,
-    paddingVertical: 14,
-    marginBottom: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  snoozeButtonPressed: {
-    opacity: 0.7,
-  },
-  snoozeButtonText: {
-    color: COLORS.critical,
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  snoozedLabel: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.surfaceBorder,
-    paddingVertical: 14,
-    marginBottom: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  snoozedText: {
-    color: COLORS.textSecondary,
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-
-  // Cards
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.surfaceBorder,
-    padding: 20,
-    marginBottom: 12,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  cardLabel: {
-    color: COLORS.textSecondary,    // raised from textSecondary → 7.1:1
-    fontSize: 13,                   // raised from 11
-    fontWeight: '600',
-    letterSpacing: 1.5,
-  },
-  thresholdBadge: {
-    fontSize: 22,                   // raised from 20
-    fontWeight: '300',
-    fontVariant: ['tabular-nums'],
-  },
-
-  // Slider
-  slider: {
-    width: '100%',
-    height: 44,                     // WCAG touch target
-  },
-  sliderLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 2,
-  },
-  sliderLabel: {
-    color: COLORS.textMuted,        // 4.6:1 on bg — AA pass for this size
-    fontSize: 13,                   // raised from 11
-    fontVariant: ['tabular-nums'],
-  },
-
-  // Toggle
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    minHeight: 48,                  // ensure touch target
-  },
-  toggleInfo: {
-    flex: 1,
-    marginRight: 16,
-  },
-  toggleSub: {
-    color: COLORS.textSecondary,    // raised from textTertiary → 7.1:1
-    fontSize: 14,                   // raised from 12
-    marginTop: 6,
-    lineHeight: 20,                 // raised for readability
-  },
-  switchSize: {
-    transform: [{scale: 1.1}],     // slightly larger for older users
-  },
-
-  // Footer
-  footer: {
-    marginTop: 'auto',
-    marginBottom: 36,
-    alignItems: 'center',
-  },
-  footerText: {
-    color: COLORS.textMuted,        // 4.6:1 — AA pass
-    fontSize: 13,                   // raised from 11
-    letterSpacing: 0.3,
-  },
-});
