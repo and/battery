@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — Battery Alert</title>
+  <meta name="description" content="Battery Alert privacy policy. The app collects no data.">
+  <meta name="theme-color" content="#F5F0EB">
+  <link rel="icon" type="image/png" href="icon.png">
+
+  <style>
+    @font-face {
+      font-family: 'Instrument Serif';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url(fonts/instrument-serif-regular.woff2) format('woff2');
+    }
+    @font-face {
+      font-family: 'Instrument Serif';
+      font-style: italic;
+      font-weight: 400;
+      font-display: swap;
+      src: url(fonts/instrument-serif-italic.woff2) format('woff2');
+    }
+    @font-face {
+      font-family: 'Outfit';
+      font-style: normal;
+      font-weight: 300 500;
+      font-display: swap;
+      src: url(fonts/outfit-latin.woff2) format('woff2');
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 400;
+      background: #F5F0EB;
+      color: #1a1a1a;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::selection { background: #D94F3B; color: #fff; }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0.025;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 128px;
+    }
+
+    a { color: inherit; }
+
+    .topbar {
+      padding: 24px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+    .topbar-left img {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+    }
+    .topbar-left span {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #888;
+    }
+
+    .content {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 8vh 32px 16vh;
+    }
+
+    .kicker {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #D94F3B;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-weight: 400;
+      font-size: clamp(36px, 7vw, 64px);
+      line-height: 1;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+
+    .updated {
+      font-size: 13px;
+      color: #aaa;
+      font-weight: 300;
+      margin-bottom: 56px;
+    }
+
+    h2 {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-weight: 400;
+      font-size: 24px;
+      margin-top: 48px;
+      margin-bottom: 12px;
+    }
+
+    p {
+      font-size: 16px;
+      line-height: 1.75;
+      color: #555;
+      font-weight: 300;
+    }
+
+    p + p { margin-top: 14px; }
+
+    .highlight {
+      background: #EDE8E1;
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin: 40px 0;
+    }
+    .highlight p {
+      font-size: 17px;
+      color: #1a1a1a;
+      font-weight: 400;
+    }
+
+    footer {
+      padding: 32px;
+      text-align: center;
+      font-size: 12px;
+      color: #bbb;
+    }
+    footer a {
+      text-decoration: none;
+      border-bottom: 1px solid #ddd;
+    }
+    footer a:hover { color: #1a1a1a; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <a href="index.html" class="topbar-left">
+      <img src="icon.png" alt="">
+      <span>Battery Alert</span>
+    </a>
+  </div>
+
+  <div class="content">
+    <div class="kicker">Legal</div>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: May 3, 2026</p>
+
+    <div class="highlight">
+      <p>Battery Alert collects no data. Nothing leaves your phone. There are no servers, no accounts, and no internet connection required.</p>
+    </div>
+
+    <h2>What the app does</h2>
+    <p>Battery Alert monitors your device's battery level in the background and plays an alarm sound when the battery drops below a threshold you choose. The alarm stops when you plug in your charger.</p>
+
+    <h2>Data collection</h2>
+    <p>We do not collect, store, transmit, or share any personal data or usage information. The app does not connect to the internet. No analytics, crash reporting, or tracking libraries are included.</p>
+
+    <h2>Permissions used</h2>
+    <p>The app requests the following Android permissions, all used solely on your device:</p>
+    <p><strong>Battery state</strong> — to read your current battery level and charging status.<br>
+    <strong>Foreground service</strong> — to keep monitoring active when the app is in the background.<br>
+    <strong>Post notifications</strong> — to display a status bar notification while monitoring is running.<br>
+    <strong>Receive boot completed</strong> — to restart monitoring automatically after your phone reboots.</p>
+    <p>None of this information is transmitted anywhere.</p>
+
+    <h2>Third-party services</h2>
+    <p>The app uses no third-party SDKs, analytics tools, advertising networks, or external services of any kind.</p>
+
+    <h2>Children's privacy</h2>
+    <p>The app does not collect data from anyone, including children under 13.</p>
+
+    <h2>Changes to this policy</h2>
+    <p>If this policy ever changes, the updated version will be posted at this URL with a new date. Given the nature of the app, we do not anticipate any changes.</p>
+
+    <h2>Contact</h2>
+    <p>Questions? Open an issue on <a href="https://github.com/and/battery" style="border-bottom:1px solid #ccc;">GitHub</a>.</p>
+  </div>
+
+  <footer>
+    <p><a href="index.html">← Back to Battery Alert</a></p>
+  </footer>
+
+</body>
+</html>
