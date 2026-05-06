@@ -14,7 +14,6 @@ import androidx.core.app.NotificationCompat
 class NativeBatteryMonitorService : Service() {
 
     private var batteryReceiver: BroadcastReceiver? = null
-    private var isAlarming = false
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         ensureChannel()
@@ -30,7 +29,7 @@ class NativeBatteryMonitorService : Service() {
             override fun onReceive(context: Context, intent: Intent) {
                 when (intent.action) {
                     Intent.ACTION_BATTERY_CHANGED -> handleBatteryChanged(intent)
-                    Intent.ACTION_POWER_CONNECTED -> stopAlarm()
+                    Intent.ACTION_POWER_CONNECTED -> NativeAlarmService.stop(this@NativeBatteryMonitorService)
                 }
             }
         }
@@ -44,11 +43,12 @@ class NativeBatteryMonitorService : Service() {
     private fun handleBatteryChanged(intent: Intent) {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_MONITORING_ENABLED, true)) {
-            stopAlarm()
+            NativeAlarmService.stop(this)
             return
         }
 
         val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        if (level < 0) return
         val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
         val pct = if (scale > 0) (level * 100) / scale else return
 
@@ -58,26 +58,10 @@ class NativeBatteryMonitorService : Service() {
 
         val threshold = prefs.getInt(KEY_THRESHOLD, DEFAULT_THRESHOLD)
 
-        if (charging) {
-            stopAlarm()
-        } else if (pct <= threshold) {
-            startAlarm()
-        } else {
-            stopAlarm()
-        }
-    }
-
-    private fun startAlarm() {
-        if (!isAlarming) {
-            isAlarming = true
-            NativeAlarmService.start(this)
-        }
-    }
-
-    private fun stopAlarm() {
-        if (isAlarming) {
-            isAlarming = false
+        if (charging || pct > threshold) {
             NativeAlarmService.stop(this)
+        } else {
+            NativeAlarmService.start(this)
         }
     }
 
@@ -116,7 +100,7 @@ class NativeBatteryMonitorService : Service() {
         const val KEY_THRESHOLD = "threshold"
         const val KEY_MONITORING_ENABLED = "monitoring_enabled"
         const val DEFAULT_THRESHOLD = 20
-        private const val CHANNEL_ID = "RN_BACKGROUND_ACTIONS_CHANNEL"
+        private const val CHANNEL_ID = "battery_native_monitor_v2"
         const val NOTIF_ID = 9001
 
         fun start(context: Context) {
@@ -136,6 +120,7 @@ class NativeBatteryMonitorService : Service() {
                 return
             }
             val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            if (level < 0) return
             val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
             val pct = if (scale > 0) (level * 100) / scale else return
             val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
