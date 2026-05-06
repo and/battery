@@ -1,6 +1,5 @@
 import DeviceInfo from 'react-native-device-info';
 import {AppState, AppStateStatus, NativeEventEmitter, NativeModules, Platform} from 'react-native';
-import BackgroundService from 'react-native-background-actions';
 import {
   showLowBatteryAlert,
   dismissLowBatteryAlert,
@@ -144,48 +143,15 @@ export function getSnoozedState(): boolean {
   return isSnoozed;
 }
 
-// --- Background service ---
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-async function backgroundTaskFn(): Promise<void> {
-  console.log('[BatteryMonitor] Background task started');
-  while (BackgroundService.isRunning()) {
-    try {
-      await checkBattery();
-    } catch (error) {
-      console.error('[BatteryMonitor] checkBattery error:', error);
-    }
-    await sleep(BATTERY_CHECK_INTERVAL_MS);
-  }
-  console.log('[BatteryMonitor] Background task stopped');
-}
-
-export async function headlessTask(): Promise<void> {
-  const enabled = await getMonitoringEnabled();
-  if (!enabled) {
-    return;
-  }
-  await backgroundTaskFn();
-}
-
-const BACKGROUND_SERVICE_OPTIONS = {
-  taskName: 'BatteryMonitor',
-  taskTitle: 'Battery Alert',
-  taskDesc: 'Monitoring battery...',
-  taskIcon: {name: 'ic_stat_battery_monitor', type: 'drawable' as const},
-};
 
 export async function startBackgroundService(): Promise<void> {
-  if (Platform.OS !== 'android' || BackgroundService.isRunning()) {
-    return;
-  }
-  await BackgroundService.start(backgroundTaskFn, BACKGROUND_SERVICE_OPTIONS);
+  if (Platform.OS !== 'android') return;
+  const threshold = await getThreshold();
+  NativeModules.NativeSettings?.setThreshold(threshold);
+  NativeModules.NativeSettings?.startMonitoring();
 }
 
 export async function stopBackgroundService(): Promise<void> {
-  if (Platform.OS !== 'android' || !BackgroundService.isRunning()) {
-    return;
-  }
-  await BackgroundService.stop();
+  if (Platform.OS !== 'android') return;
+  NativeModules.NativeSettings?.stopMonitoring();
 }

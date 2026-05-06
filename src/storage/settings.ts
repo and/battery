@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {NativeModules, Platform} from 'react-native';
 import {DEFAULT_THRESHOLD} from '../utils/constants';
 
 const THRESHOLD_KEY = '@battery_threshold';
@@ -14,6 +15,9 @@ export async function getThreshold(): Promise<number> {
 
 export async function setThreshold(threshold: number): Promise<void> {
   await AsyncStorage.setItem(THRESHOLD_KEY, threshold.toString());
+  if (Platform.OS === 'android') {
+    NativeModules.NativeSettings?.setThreshold(threshold);
+  }
 }
 
 export async function getMonitoringEnabled(): Promise<boolean> {
@@ -23,6 +27,9 @@ export async function getMonitoringEnabled(): Promise<boolean> {
 
 export async function setMonitoringEnabled(enabled: boolean): Promise<void> {
   await AsyncStorage.setItem(MONITORING_KEY, enabled.toString());
+  if (Platform.OS === 'android') {
+    NativeModules.NativeSettings?.setMonitoringEnabled(enabled);
+  }
 }
 
 export async function getShowStatusIcon(): Promise<boolean> {
