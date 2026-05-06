@@ -126,5 +126,27 @@ class NativeBatteryMonitorService : Service() {
         fun stop(context: Context) {
             context.stopService(Intent(context, NativeBatteryMonitorService::class.java))
         }
+
+        fun recheck(context: Context) {
+            val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                ?: return
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            if (!prefs.getBoolean(KEY_MONITORING_ENABLED, true)) {
+                NativeAlarmService.stop(context)
+                return
+            }
+            val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
+            val pct = if (scale > 0) (level * 100) / scale else return
+            val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+            val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                           status == BatteryManager.BATTERY_STATUS_FULL
+            val threshold = prefs.getInt(KEY_THRESHOLD, DEFAULT_THRESHOLD)
+            if (charging || pct > threshold) {
+                NativeAlarmService.stop(context)
+            } else if (pct <= threshold) {
+                NativeAlarmService.start(context)
+            }
+        }
     }
 }

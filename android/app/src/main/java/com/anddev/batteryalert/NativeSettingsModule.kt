@@ -13,6 +13,7 @@ class NativeSettingsModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun setThreshold(threshold: Int) {
         prefs().edit().putInt(NativeBatteryMonitorService.KEY_THRESHOLD, threshold).apply()
+        NativeBatteryMonitorService.recheck(reactApplicationContext)
     }
 
     @ReactMethod
