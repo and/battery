@@ -55,6 +55,7 @@ const DARK_COLORS = {
   bg: '#09090B',
   surface: '#131316',
   surfaceBorder: '#2A2A32',
+  surfaceHighlight: 'rgba(255,255,255,0.08)', // specular top-edge
   critical: '#F87171',             // 5.2:1 on dark bg
   criticalDim: '#7F1D1D',
   criticalGlow: '#EF444440',
@@ -70,12 +71,15 @@ const DARK_COLORS = {
   gaugeInactive: '#2A2A32',
   switchTrackOff: '#27272A',
   switchThumbOff: '#71717A',
+  shadowColor: '#000000',
+  shadowOpacity: 0.45,
 };
 
 const LIGHT_COLORS = {
   bg: '#F4F4F5',
   surface: '#FFFFFF',
   surfaceBorder: '#D4D4D8',
+  surfaceHighlight: 'rgba(255,255,255,0.90)', // strong specular on light
   critical: '#DC2626',             // 5.9:1 on light bg
   criticalDim: '#FEE2E2',
   criticalGlow: '#DC262640',
@@ -91,6 +95,8 @@ const LIGHT_COLORS = {
   gaugeInactive: '#D4D4D8',
   switchTrackOff: '#D4D4D8',
   switchThumbOff: '#A1A1AA',
+  shadowColor: '#000000',
+  shadowOpacity: 0.07,
 };
 
 type ThemeColors = typeof DARK_COLORS;
@@ -326,7 +332,13 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: 14,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
+      borderTopColor: colors.surfaceHighlight,
       minHeight: 44,
+      shadowColor: colors.shadowColor,
+      shadowOffset: {width: 0, height: 1},
+      shadowOpacity: colors.shadowOpacity,
+      shadowRadius: 4,
+      elevation: 2,
     },
     statusDot: {
       width: 8,
@@ -381,11 +393,17 @@ function createStyles(colors: ThemeColors) {
       borderRadius: 16,
       borderWidth: 1,
       borderColor: colors.critical,
+      borderTopColor: colors.surfaceHighlight,
       paddingVertical: 14,
       marginBottom: 12,
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: 48,
+      shadowColor: colors.shadowColor,
+      shadowOffset: {width: 0, height: 2},
+      shadowOpacity: colors.shadowOpacity,
+      shadowRadius: 8,
+      elevation: 3,
     },
     snoozeButtonPressed: {
       opacity: 0.7,
@@ -401,11 +419,17 @@ function createStyles(colors: ThemeColors) {
       borderRadius: 16,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
+      borderTopColor: colors.surfaceHighlight,
       paddingVertical: 14,
       marginBottom: 12,
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: 48,
+      shadowColor: colors.shadowColor,
+      shadowOffset: {width: 0, height: 2},
+      shadowOpacity: colors.shadowOpacity,
+      shadowRadius: 8,
+      elevation: 3,
     },
     snoozedText: {
       color: colors.textSecondary,
@@ -418,8 +442,14 @@ function createStyles(colors: ThemeColors) {
       borderRadius: 16,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
+      borderTopColor: colors.surfaceHighlight,
       padding: 20,
       marginBottom: 12,
+      shadowColor: colors.shadowColor,
+      shadowOffset: {width: 0, height: 2},
+      shadowOpacity: colors.shadowOpacity,
+      shadowRadius: 10,
+      elevation: 3,
     },
     cardHeader: {
       flexDirection: 'row',
@@ -652,6 +682,18 @@ export default function HomeScreen(): React.JSX.Element {
           accessible={true}
           accessibilityLabel={batteryDescription}
           accessibilityRole="text">
+          {/* Ambient glow disc — softens the gauge center */}
+          <View
+            pointerEvents="none"
+            importantForAccessibility="no"
+            style={{
+              position: 'absolute',
+              width: GAUGE_SIZE * 0.68,
+              height: GAUGE_SIZE * 0.68,
+              borderRadius: GAUGE_SIZE * 0.34,
+              backgroundColor: batteryColors.glow,
+            }}
+          />
           <PulsingRing
             color={batteryColors.main}
             active={isCritical && !isCharging}
