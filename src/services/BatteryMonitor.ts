@@ -59,9 +59,7 @@ async function checkBattery(): Promise<void> {
       isAlerting = false;
     }
   } catch (e) {
-    if (__DEV__) {
-      console.warn('[BatteryMonitor] checkBattery error:', e);
-    }
+    console.warn('[BatteryMonitor] checkBattery error:', e);
   }
 }
 
