@@ -17,41 +17,51 @@ let powerStateSubscription: {remove: () => void} | null = null;
 let deviceInfoEmitter: NativeEventEmitter | null = null;
 
 async function checkBattery(): Promise<void> {
-  const enabled = await getMonitoringEnabled();
-  if (!enabled) {
-    if (isAlerting) {
-      await dismissLowBatteryAlert();
-      isAlerting = false;
+  try {
+    const enabled = await getMonitoringEnabled();
+    if (!enabled) {
+      if (isAlerting) {
+        await dismissLowBatteryAlert();
+        isAlerting = false;
+      }
+      return;
     }
-    return;
-  }
 
-  const [level, isCharging] = await Promise.all([
-    DeviceInfo.getBatteryLevel(),
-    DeviceInfo.isBatteryCharging(),
-  ]);
+    const [level, isCharging] = await Promise.all([
+      DeviceInfo.getBatteryLevel(),
+      DeviceInfo.isBatteryCharging(),
+    ]);
 
-  // level returns -1 on simulators/unsupported devices — treat as full
-  const batteryPercent = level < 0 ? 100 : Math.round(level * 100);
-  const threshold = await getThreshold();
+    // level returns -1 on simulators/unsupported devices — treat as full
+    const batteryPercent = level < 0 ? 100 : Math.round(level * 100);
+    const threshold = await getThreshold();
 
-  if (isCharging) {
-    if (isAlerting) {
+    if (isCharging) {
+      if (isAlerting) {
+        await dismissLowBatteryAlert();
+        stopAlarm();
+        isAlerting = false;
+      }
+      clearSnooze();
+      return;
+    }
+
+    // Not charging and battery is at or below threshold
+    if (batteryPercent <= threshold) {
+      await showLowBatteryAlert(batteryPercent);
+      if (!isSnoozed) {
+        startAlarm();
+      }
+      isAlerting = true;
+    } else if (isAlerting) {
       await dismissLowBatteryAlert();
       stopAlarm();
       isAlerting = false;
     }
-    clearSnooze();
-    return;
-  }
-
-  // Not charging and battery is at or below threshold
-  if (batteryPercent <= threshold) {
-    await showLowBatteryAlert(batteryPercent);
-    if (!isSnoozed) {
-      startAlarm();
+  } catch (e) {
+    if (__DEV__) {
+      console.warn('[BatteryMonitor] checkBattery error:', e);
     }
-    isAlerting = true;
   }
 }
 
