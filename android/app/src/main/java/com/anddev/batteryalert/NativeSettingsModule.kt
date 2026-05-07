@@ -39,6 +39,11 @@ class NativeSettingsModule(reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun setSnoozeUntil(timestampMs: Double) {
+        prefs().edit().putLong(NativeBatteryMonitorService.KEY_SNOOZE_UNTIL, timestampMs.toLong()).apply()
+    }
+
+    @ReactMethod
     fun startAlarm() {
         NativeAlarmService.start(reactApplicationContext)
     }

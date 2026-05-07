@@ -127,14 +127,24 @@ function clearSnooze(): void {
     snoozeTimerId = null;
   }
   isSnoozed = false;
+  if (Platform.OS === 'android') {
+    NativeModules.NativeSettings?.setSnoozeUntil(0);
+  }
 }
 
 export function snoozeAlarm(): void {
   stopAlarm();
   isSnoozed = true;
+  const snoozeUntil = Date.now() + SNOOZE_DURATION_MS;
+  if (Platform.OS === 'android') {
+    NativeModules.NativeSettings?.setSnoozeUntil(snoozeUntil);
+  }
   snoozeTimerId = setTimeout(() => {
     isSnoozed = false;
     snoozeTimerId = null;
+    if (Platform.OS === 'android') {
+      NativeModules.NativeSettings?.setSnoozeUntil(0);
+    }
     checkBattery();
   }, SNOOZE_DURATION_MS);
 }
