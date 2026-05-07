@@ -302,6 +302,12 @@ function FadeIn({
 }
 
 function createStyles(colors: ThemeColors) {
+  const shadowBase = {
+    shadowColor: colors.shadowColor,
+    shadowOpacity: colors.shadowOpacity,
+  };
+  const shadowSm = {...shadowBase, shadowOffset: {width: 0, height: 1}, shadowRadius: 4, elevation: 2};
+  const shadowMd = {...shadowBase, shadowOffset: {width: 0, height: 2}, shadowRadius: 8, elevation: 3};
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -334,11 +340,7 @@ function createStyles(colors: ThemeColors) {
       borderColor: colors.surfaceBorder,
       borderTopColor: colors.surfaceHighlight,
       minHeight: 44,
-      shadowColor: colors.shadowColor,
-      shadowOffset: {width: 0, height: 1},
-      shadowOpacity: colors.shadowOpacity,
-      shadowRadius: 4,
-      elevation: 2,
+      ...shadowSm,
     },
     statusDot: {
       width: 8,
@@ -399,11 +401,7 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: 48,
-      shadowColor: colors.shadowColor,
-      shadowOffset: {width: 0, height: 2},
-      shadowOpacity: colors.shadowOpacity,
-      shadowRadius: 8,
-      elevation: 3,
+      ...shadowMd,
     },
     snoozeButtonPressed: {
       opacity: 0.7,
@@ -425,11 +423,7 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: 48,
-      shadowColor: colors.shadowColor,
-      shadowOffset: {width: 0, height: 2},
-      shadowOpacity: colors.shadowOpacity,
-      shadowRadius: 8,
-      elevation: 3,
+      ...shadowMd,
     },
     snoozedText: {
       color: colors.textSecondary,
@@ -445,11 +439,8 @@ function createStyles(colors: ThemeColors) {
       borderTopColor: colors.surfaceHighlight,
       padding: 20,
       marginBottom: 12,
-      shadowColor: colors.shadowColor,
-      shadowOffset: {width: 0, height: 2},
-      shadowOpacity: colors.shadowOpacity,
+      ...shadowMd,
       shadowRadius: 10,
-      elevation: 3,
     },
     cardHeader: {
       flexDirection: 'row',
