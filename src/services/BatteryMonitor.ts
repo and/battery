@@ -1,6 +1,5 @@
 import DeviceInfo from 'react-native-device-info';
 import {AppState, AppStateStatus, NativeEventEmitter, NativeModules, Platform} from 'react-native';
-import BackgroundService from 'react-native-background-actions';
 import {
   showLowBatteryAlert,
   dismissLowBatteryAlert,
@@ -18,41 +17,49 @@ let powerStateSubscription: {remove: () => void} | null = null;
 let deviceInfoEmitter: NativeEventEmitter | null = null;
 
 async function checkBattery(): Promise<void> {
-  const enabled = await getMonitoringEnabled();
-  if (!enabled) {
-    if (isAlerting) {
-      await dismissLowBatteryAlert();
-      isAlerting = false;
+  try {
+    const enabled = await getMonitoringEnabled();
+    if (!enabled) {
+      if (isAlerting) {
+        await dismissLowBatteryAlert();
+        isAlerting = false;
+      }
+      return;
     }
-    return;
-  }
 
-  const [level, isCharging] = await Promise.all([
-    DeviceInfo.getBatteryLevel(),
-    DeviceInfo.isBatteryCharging(),
-  ]);
+    const [level, isCharging] = await Promise.all([
+      DeviceInfo.getBatteryLevel(),
+      DeviceInfo.isBatteryCharging(),
+    ]);
 
-  // level returns -1 on simulators/unsupported devices — treat as full
-  const batteryPercent = level < 0 ? 100 : Math.round(level * 100);
-  const threshold = await getThreshold();
+    // level returns -1 on simulators/unsupported devices — treat as full
+    const batteryPercent = level < 0 ? 100 : Math.round(level * 100);
+    const threshold = await getThreshold();
 
-  if (isCharging) {
-    if (isAlerting) {
+    if (isCharging) {
+      if (isAlerting) {
+        await dismissLowBatteryAlert();
+        stopAlarm();
+        isAlerting = false;
+      }
+      clearSnooze();
+      return;
+    }
+
+    // Not charging and battery is at or below threshold
+    if (batteryPercent <= threshold) {
+      await showLowBatteryAlert(batteryPercent);
+      if (!isSnoozed) {
+        startAlarm();
+      }
+      isAlerting = true;
+    } else if (isAlerting) {
       await dismissLowBatteryAlert();
       stopAlarm();
       isAlerting = false;
     }
-    clearSnooze();
-    return;
-  }
-
-  // Not charging and battery is at or below threshold
-  if (batteryPercent <= threshold) {
-    await showLowBatteryAlert(batteryPercent);
-    if (!isSnoozed) {
-      startAlarm();
-    }
-    isAlerting = true;
+  } catch (e) {
+    console.warn('[BatteryMonitor] checkBattery error:', e);
   }
 }
 
@@ -128,14 +135,24 @@ function clearSnooze(): void {
     snoozeTimerId = null;
   }
   isSnoozed = false;
+  if (Platform.OS === 'android') {
+    NativeModules.NativeSettings?.setSnoozeUntil(0);
+  }
 }
 
 export function snoozeAlarm(): void {
   stopAlarm();
   isSnoozed = true;
+  const snoozeUntil = Date.now() + SNOOZE_DURATION_MS;
+  if (Platform.OS === 'android') {
+    NativeModules.NativeSettings?.setSnoozeUntil(snoozeUntil);
+  }
   snoozeTimerId = setTimeout(() => {
     isSnoozed = false;
     snoozeTimerId = null;
+    if (Platform.OS === 'android') {
+      NativeModules.NativeSettings?.setSnoozeUntil(0);
+    }
     checkBattery();
   }, SNOOZE_DURATION_MS);
 }
@@ -144,48 +161,15 @@ export function getSnoozedState(): boolean {
   return isSnoozed;
 }
 
-// --- Background service ---
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-async function backgroundTaskFn(): Promise<void> {
-  console.log('[BatteryMonitor] Background task started');
-  while (BackgroundService.isRunning()) {
-    try {
-      await checkBattery();
-    } catch (error) {
-      console.error('[BatteryMonitor] checkBattery error:', error);
-    }
-    await sleep(BATTERY_CHECK_INTERVAL_MS);
-  }
-  console.log('[BatteryMonitor] Background task stopped');
-}
-
-export async function headlessTask(): Promise<void> {
-  const enabled = await getMonitoringEnabled();
-  if (!enabled) {
-    return;
-  }
-  await backgroundTaskFn();
-}
-
-const BACKGROUND_SERVICE_OPTIONS = {
-  taskName: 'BatteryMonitor',
-  taskTitle: 'Battery Alert',
-  taskDesc: 'Monitoring battery...',
-  taskIcon: {name: 'ic_stat_battery_monitor', type: 'drawable' as const},
-};
 
 export async function startBackgroundService(): Promise<void> {
-  if (Platform.OS !== 'android' || BackgroundService.isRunning()) {
-    return;
-  }
-  await BackgroundService.start(backgroundTaskFn, BACKGROUND_SERVICE_OPTIONS);
+  if (Platform.OS !== 'android') return;
+  const threshold = await getThreshold();
+  NativeModules.NativeSettings?.setThreshold(threshold);
+  NativeModules.NativeSettings?.startMonitoring();
 }
 
 export async function stopBackgroundService(): Promise<void> {
-  if (Platform.OS !== 'android' || !BackgroundService.isRunning()) {
-    return;
-  }
-  await BackgroundService.stop();
+  if (Platform.OS !== 'android') return;
+  NativeModules.NativeSettings?.stopMonitoring();
 }

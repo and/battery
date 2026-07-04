@@ -1,7 +1,10 @@
 import Sound from 'react-native-sound';
+import {NativeModules, Platform} from 'react-native';
 
-// Enable playback in background/silent mode
-Sound.setCategory('Alarm', true);
+// Enable playback in background/silent mode (iOS only — Android uses NativeAlarmService)
+if (Platform.OS !== 'android') {
+  Sound.setCategory('Alarm', true);
+}
 
 let alarmSound: Sound | null = null;
 let isPlaying = false;
@@ -19,6 +22,11 @@ function clearRetryTimer(): void {
 }
 
 export function startAlarm(): void {
+  if (Platform.OS === 'android') {
+    NativeModules.NativeSettings?.startAlarm();
+    return;
+  }
+
   shouldAlarm = true;
 
   if (isPlaying || isLoading) {
@@ -60,6 +68,11 @@ export function startAlarm(): void {
 }
 
 export function stopAlarm(): void {
+  if (Platform.OS === 'android') {
+    NativeModules.NativeSettings?.stopAlarm();
+    return;
+  }
+
   shouldAlarm = false;
   clearRetryTimer();
   if (alarmSound) {

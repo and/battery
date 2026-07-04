@@ -5,12 +5,6 @@ jest.mock('react-native-device-info', () => ({
   addPowerStateListener: jest.fn(() => ({remove: jest.fn()})),
 }));
 
-jest.mock('react-native-background-actions', () => ({
-  start: jest.fn().mockResolvedValue(undefined),
-  stop: jest.fn().mockResolvedValue(undefined),
-  isRunning: jest.fn().mockReturnValue(false),
-}));
-
 jest.mock('react-native-sound', () => {
   const Sound = jest.fn().mockImplementation((file, bundle, cb) => {
     if (cb) cb(null);

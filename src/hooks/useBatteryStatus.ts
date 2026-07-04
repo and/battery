@@ -1,6 +1,6 @@
 import {useState, useEffect, useCallback, useRef} from 'react';
 import DeviceInfo from 'react-native-device-info';
-import {AppState} from 'react-native';
+import {AppState, NativeEventEmitter, NativeModules} from 'react-native';
 
 interface BatteryStatus {
   level: number; // 0-100
@@ -45,18 +45,26 @@ export function useBatteryStatus(): BatteryStatus {
     fetchStatus();
 
     // Refresh when app comes to foreground
-    const sub = AppState.addEventListener('change', state => {
+    const appStateSub = AppState.addEventListener('change', state => {
       if (state === 'active') {
         fetchStatus();
       }
     });
+
+    // Instant update when charger is connected/disconnected
+    const emitter = new NativeEventEmitter(NativeModules.RNDeviceInfo);
+    const powerSub = emitter.addListener(
+      'RNDeviceInfo_powerStateDidChange',
+      fetchStatus,
+    );
 
     // Light polling for UI updates only (every 30s)
     const interval = setInterval(fetchStatus, 30_000);
 
     return () => {
       mounted.current = false;
-      sub.remove();
+      appStateSub.remove();
+      powerSub.remove();
       clearInterval(interval);
     };
   }, [fetchStatus]);

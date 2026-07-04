@@ -32,7 +32,7 @@
         </intent-filter>
       </activity>
       <service
-        android:name="com.asterinet.react.bgactions.RNBackgroundActionsTask"
+        android:name=".NativeBatteryMonitorService"
         android:foregroundServiceType="specialUse"
         android:stopWithTask="false">
         <property
@@ -54,7 +54,6 @@
         android:name=".BatteryAlertReceiver"
         android:exported="false">
         <intent-filter>
-          <action android:name="android.intent.action.BATTERY_LOW" />
           <action android:name="android.intent.action.BATTERY_OKAY" />
           <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
         </intent-filter>

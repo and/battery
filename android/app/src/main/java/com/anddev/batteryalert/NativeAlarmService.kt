@@ -22,7 +22,9 @@ class NativeAlarmService : Service() {
         }
         ensureChannel()
         startForeground(NOTIF_ID, buildNotification())
-        startAlarm()
+        if (player?.isPlaying != true) {
+            startAlarm()
+        }
         return START_STICKY
     }
 
