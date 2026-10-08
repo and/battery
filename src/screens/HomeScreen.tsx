@@ -562,6 +562,12 @@ function createStyles(colors: ThemeColors) {
       fontSize: 13,
       letterSpacing: 0.3,
     },
+    versionText: {
+      color: colors.textMuted,
+      fontSize: 12,
+      marginTop: 4,
+      fontVariant: ['tabular-nums'],
+    },
   });
 }
 
@@ -984,6 +990,7 @@ export default function HomeScreen(): React.JSX.Element {
           <Text style={styles.footerText}>
             Runs in background {'·'} Minimal battery impact
           </Text>
+          <Text style={styles.versionText}>v{DeviceInfo.getVersion()}</Text>
         </View>
       </FadeIn>
     </ScrollView>
