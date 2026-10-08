@@ -730,7 +730,12 @@ export default function HomeScreen(): React.JSX.Element {
       style={styles.container}
       contentContainerStyle={[
         styles.content,
-        {paddingTop: insets.top + 8, paddingBottom: insets.bottom},
+        {
+          paddingTop: insets.top + 8,
+          paddingBottom: insets.bottom,
+          paddingLeft: insets.left + 20,
+          paddingRight: insets.right + 20,
+        },
       ]}
       accessibilityRole="summary">
       <StatusBar
