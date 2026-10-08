@@ -4,7 +4,8 @@ import {AppState, NativeEventEmitter, NativeModules} from 'react-native';
 
 interface BatteryStatus {
   level: number; // 0-100
-  isCharging: boolean;
+  isCharging: boolean; // plugged in, including when full
+  isFull: boolean;
   refreshing: boolean;
   refresh: () => void;
 }
@@ -12,20 +13,21 @@ interface BatteryStatus {
 export function useBatteryStatus(): BatteryStatus {
   const [level, setLevel] = useState(100);
   const [isCharging, setIsCharging] = useState(false);
+  const [isFull, setIsFull] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const mounted = useRef(true);
 
   const fetchStatus = useCallback(async () => {
     try {
-      const [batteryLevel, charging] = await Promise.all([
-        DeviceInfo.getBatteryLevel(),
-        DeviceInfo.isBatteryCharging(),
-      ]);
+      // isBatteryCharging() is false once the battery is full, even while
+      // plugged in, so read the battery state instead.
+      const {batteryLevel = -1, batteryState} = await DeviceInfo.getPowerState();
       if (mounted.current) {
         // batteryLevel returns -1 on simulators/unsupported devices
         const clamped = batteryLevel < 0 ? 1 : batteryLevel;
         setLevel(Math.round(clamped * 100));
-        setIsCharging(charging);
+        setIsCharging(batteryState === 'charging' || batteryState === 'full');
+        setIsFull(batteryState === 'full');
       }
     } catch {
       // Silently handle — battery info may be unavailable in simulator
@@ -69,5 +71,5 @@ export function useBatteryStatus(): BatteryStatus {
     };
   }, [fetchStatus]);
 
-  return {level, isCharging, refreshing, refresh};
+  return {level, isCharging, isFull, refreshing, refresh};
 }

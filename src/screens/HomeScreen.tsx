@@ -130,7 +130,11 @@ function getBatteryStateDescription(
   level: number,
   threshold: number,
   isCharging: boolean,
+  isFull: boolean,
 ): string {
+  if (isFull) {
+    return `Battery fully charged at ${level}%, plugged in`;
+  }
   if (isCharging) {
     return `Battery at ${level}%, currently charging`;
   }
@@ -562,7 +566,7 @@ function createStyles(colors: ThemeColors) {
 }
 
 export default function HomeScreen(): React.JSX.Element {
-  const {level, isCharging} = useBatteryStatus();
+  const {level, isCharging, isFull} = useBatteryStatus();
   const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
   const [monitoring, setMonitoring] = useState(true);
   const [fullChargeAlert, setFullChargeAlert] = useState(false);
@@ -706,8 +710,8 @@ export default function HomeScreen(): React.JSX.Element {
   );
   const isCritical = level <= threshold;
   const batteryDescription = useMemo(
-    () => getBatteryStateDescription(level, threshold, isCharging),
-    [level, threshold, isCharging],
+    () => getBatteryStateDescription(level, threshold, isCharging, isFull),
+    [level, threshold, isCharging, isFull],
   );
 
   if (!loaded) {
@@ -818,7 +822,7 @@ export default function HomeScreen(): React.JSX.Element {
                   {color: isCharging ? colors.good : colors.textSecondary},
                 ]}
                 accessibilityElementsHidden={true}>
-                {isCharging ? 'Charging' : 'On Battery'}
+                {isFull ? 'Charged' : isCharging ? 'Charging' : 'On Battery'}
               </Text>
             </View>
           </View>
