@@ -60,6 +60,7 @@ class NativeAlarmService : Service() {
         .setCategory(NotificationCompat.CATEGORY_ALARM)
         .setOngoing(true)
         .setAutoCancel(false)
+        .setContentIntent(openAppPendingIntent(this))
         .addAction(0, "Dismiss", stopIntent())
         .build()
 

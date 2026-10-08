@@ -5,6 +5,7 @@ import {DEFAULT_THRESHOLD} from '../utils/constants';
 const THRESHOLD_KEY = '@battery_threshold';
 const MONITORING_KEY = '@monitoring_enabled';
 const STATUS_ICON_KEY = '@status_icon_enabled';
+const FULL_CHARGE_ALERT_KEY = '@full_charge_alert_enabled';
 const BATTERY_OPT_ASKED_KEY = '@battery_opt_asked';
 const NOTHING_BG_ASKED_KEY = '@nothing_bg_asked';
 
@@ -29,6 +30,18 @@ export async function setMonitoringEnabled(enabled: boolean): Promise<void> {
   await AsyncStorage.setItem(MONITORING_KEY, enabled.toString());
   if (Platform.OS === 'android') {
     NativeModules.NativeSettings?.setMonitoringEnabled(enabled);
+  }
+}
+
+export async function getFullChargeAlertEnabled(): Promise<boolean> {
+  const value = await AsyncStorage.getItem(FULL_CHARGE_ALERT_KEY);
+  return value === 'true';
+}
+
+export async function setFullChargeAlertEnabled(enabled: boolean): Promise<void> {
+  await AsyncStorage.setItem(FULL_CHARGE_ALERT_KEY, enabled.toString());
+  if (Platform.OS === 'android') {
+    NativeModules.NativeSettings?.setFullChargeAlertEnabled(enabled);
   }
 }
 

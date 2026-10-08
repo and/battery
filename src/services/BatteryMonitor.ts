@@ -5,7 +5,11 @@ import {
   dismissLowBatteryAlert,
 } from './NotificationService';
 import {startAlarm, stopAlarm} from './AlarmService';
-import {getThreshold, getMonitoringEnabled} from '../storage/settings';
+import {
+  getThreshold,
+  getMonitoringEnabled,
+  getFullChargeAlertEnabled,
+} from '../storage/settings';
 import {BATTERY_CHECK_INTERVAL_MS, SNOOZE_DURATION_MS} from '../utils/constants';
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
@@ -164,8 +168,12 @@ export function getSnoozedState(): boolean {
 
 export async function startBackgroundService(): Promise<void> {
   if (Platform.OS !== 'android') return;
-  const threshold = await getThreshold();
+  const [threshold, fullChargeAlert] = await Promise.all([
+    getThreshold(),
+    getFullChargeAlertEnabled(),
+  ]);
   NativeModules.NativeSettings?.setThreshold(threshold);
+  NativeModules.NativeSettings?.setFullChargeAlertEnabled(fullChargeAlert);
   NativeModules.NativeSettings?.startMonitoring();
 }
 

@@ -2,6 +2,7 @@ package com.anddev.batteryalert
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -41,15 +42,7 @@ class NativeBatteryMonitorService : Service() {
     }
 
     private fun handleBatteryChanged(intent: Intent) {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-        if (level < 0) return
-        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
-        val pct = if (scale > 0) (level * 100) / scale else return
-        val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-        val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                       status == BatteryManager.BATTERY_STATUS_FULL
-        applyAlarmState(this, prefs, pct, charging)
+        evaluate(this, intent)
     }
 
     private fun buildNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -59,6 +52,15 @@ class NativeBatteryMonitorService : Service() {
         .setPriority(NotificationCompat.PRIORITY_LOW)
         .setOngoing(true)
         .setShowWhen(false)
+        .setContentIntent(openAppPendingIntent(this))
+        // Android 14+ lets users swipe away foreground-service notifications. Restart
+        // the service on swipe so it re-posts the notification and the status bar icon.
+        .setDeleteIntent(
+            PendingIntent.getService(
+                this, 0, Intent(this, NativeBatteryMonitorService::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        )
         .build()
 
     private fun ensureChannel() {
@@ -87,6 +89,8 @@ class NativeBatteryMonitorService : Service() {
         const val KEY_THRESHOLD = "threshold"
         const val KEY_MONITORING_ENABLED = "monitoring_enabled"
         const val KEY_SNOOZE_UNTIL = "snooze_until"
+        const val KEY_FULL_CHARGE_ALERT_ENABLED = "full_charge_alert_enabled"
+        const val KEY_FULL_CHARGE_NOTIFIED = "full_charge_notified"
         const val DEFAULT_THRESHOLD = 20
         private const val CHANNEL_ID = "battery_native_monitor_v2"
         const val NOTIF_ID = 9001
@@ -102,6 +106,10 @@ class NativeBatteryMonitorService : Service() {
         fun recheck(context: Context) {
             val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
                 ?: return
+            evaluate(context, intent)
+        }
+
+        private fun evaluate(context: Context, intent: Intent) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             if (level < 0) return
@@ -110,14 +118,23 @@ class NativeBatteryMonitorService : Service() {
             val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
             val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
                            status == BatteryManager.BATTERY_STATUS_FULL
-            applyAlarmState(context, prefs, pct, charging)
+            val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
+            applyAlarmState(context, prefs, pct, charging, plugged)
         }
 
-        fun applyAlarmState(context: Context, prefs: android.content.SharedPreferences, pct: Int, charging: Boolean) {
+        fun applyAlarmState(
+            context: Context,
+            prefs: android.content.SharedPreferences,
+            pct: Int,
+            charging: Boolean,
+            plugged: Boolean,
+        ) {
             if (!prefs.getBoolean(KEY_MONITORING_ENABLED, true)) {
                 NativeAlarmService.stop(context)
+                FullChargeNotifier.cancel(context)
                 return
             }
+            FullChargeNotifier.update(context, prefs, pct, plugged)
             val threshold = prefs.getInt(KEY_THRESHOLD, DEFAULT_THRESHOLD)
             val snoozeUntil = prefs.getLong(KEY_SNOOZE_UNTIL, 0L)
             val snoozed = snoozeUntil > System.currentTimeMillis()

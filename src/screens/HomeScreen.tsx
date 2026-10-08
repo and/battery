@@ -23,6 +23,8 @@ import {
   setThreshold as saveThreshold,
   getMonitoringEnabled,
   setMonitoringEnabled as saveMonitoringEnabled,
+  getFullChargeAlertEnabled,
+  setFullChargeAlertEnabled as saveFullChargeAlertEnabled,
   getBatteryOptAsked,
   setBatteryOptAsked,
   getNothingBgAsked,
@@ -489,6 +491,11 @@ function createStyles(colors: ThemeColors) {
       marginTop: 6,
       lineHeight: 20,
     },
+    toggleDivider: {
+      height: 1,
+      backgroundColor: colors.surfaceBorder,
+      marginVertical: 14,
+    },
     switchSize: {
       transform: [{scale: 1.1}],
     },
@@ -509,6 +516,7 @@ export default function HomeScreen(): React.JSX.Element {
   const {level, isCharging} = useBatteryStatus();
   const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
   const [monitoring, setMonitoring] = useState(true);
+  const [fullChargeAlert, setFullChargeAlert] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [alerting, setAlerting] = useState(false);
   const [snoozed, setSnoozed] = useState(false);
@@ -521,12 +529,15 @@ export default function HomeScreen(): React.JSX.Element {
   useEffect(() => {
     (async () => {
       await requestNotificationPermission();
-      const [savedThreshold, savedMonitoring] = await Promise.all([
-        getThreshold(),
-        getMonitoringEnabled(),
-      ]);
+      const [savedThreshold, savedMonitoring, savedFullChargeAlert] =
+        await Promise.all([
+          getThreshold(),
+          getMonitoringEnabled(),
+          getFullChargeAlertEnabled(),
+        ]);
       setThreshold(savedThreshold);
       setMonitoring(savedMonitoring);
+      setFullChargeAlert(savedFullChargeAlert);
       setLoaded(true);
       if (savedMonitoring) {
         startMonitoring();
@@ -608,6 +619,11 @@ export default function HomeScreen(): React.JSX.Element {
       await stopMonitoring();
       await stopBackgroundService();
     }
+  }, []);
+
+  const handleFullChargeAlertToggle = useCallback(async (enabled: boolean) => {
+    setFullChargeAlert(enabled);
+    await saveFullChargeAlertEnabled(enabled);
   }, []);
 
   const batteryColors = useMemo(
@@ -817,6 +833,32 @@ export default function HomeScreen(): React.JSX.Element {
               style={styles.switchSize}
             />
           </View>
+          {Platform.OS === 'android' && (
+            <>
+              <View style={styles.toggleDivider} />
+              <View style={styles.toggleRow}>
+                <View style={styles.toggleInfo}>
+                  <Text style={styles.cardLabel} accessibilityRole="header">
+                    Full Charge Alert
+                  </Text>
+                  <Text style={styles.toggleSub}>
+                    Notifies at 100% while plugged in. Silent in Do Not Disturb
+                  </Text>
+                </View>
+                <Switch
+                  value={fullChargeAlert}
+                  onValueChange={handleFullChargeAlertToggle}
+                  trackColor={{false: colors.switchTrackOff, true: colors.goodDim}}
+                  thumbColor={fullChargeAlert ? colors.good : colors.switchThumbOff}
+                  ios_backgroundColor={colors.switchTrackOff}
+                  accessibilityLabel="Full charge alert"
+                  accessibilityHint={`${fullChargeAlert ? 'Disable' : 'Enable'} the notification when the battery is fully charged`}
+                  accessibilityRole="switch"
+                  style={styles.switchSize}
+                />
+              </View>
+            </>
+          )}
         </View>
       </FadeIn>
 

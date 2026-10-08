@@ -28,6 +28,16 @@ class NativeSettingsModule(reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun setFullChargeAlertEnabled(enabled: Boolean) {
+        prefs().edit().putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_ALERT_ENABLED, enabled).apply()
+        if (enabled) {
+            NativeBatteryMonitorService.recheck(reactApplicationContext)
+        } else {
+            FullChargeNotifier.cancel(reactApplicationContext)
+        }
+    }
+
+    @ReactMethod
     fun startMonitoring() {
         NativeBatteryMonitorService.start(reactApplicationContext)
     }
