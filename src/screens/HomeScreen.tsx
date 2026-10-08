@@ -15,7 +15,9 @@ import {
   Linking,
   Alert,
   NativeModules,
+  ScrollView,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import {useBatteryStatus} from '../hooks/useBatteryStatus';
 import {
@@ -233,7 +235,7 @@ function GaugeRing({
   inactiveColor: string;
   size: number;
 }) {
-  const segments = 40;
+  const segments = 72;
   const segmentAngle = 360 / segments;
 
   return (
@@ -257,7 +259,7 @@ function GaugeRing({
             <View
               style={{
                 width: 4,
-                height: 11,
+                height: 14,
                 borderRadius: 2,
                 backgroundColor: isActive ? color : inactiveColor,
                 opacity: isActive ? 1 : 0.5,
@@ -325,14 +327,16 @@ function createStyles(colors: ThemeColors) {
     container: {
       flex: 1,
       backgroundColor: colors.bg,
-      paddingTop: Platform.OS === 'ios' ? 64 : 44,
+    },
+    content: {
+      flexGrow: 1,
       paddingHorizontal: 20,
     },
     header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 28,
+      marginBottom: 16,
       paddingHorizontal: 4,
       minHeight: 44,
     },
@@ -369,8 +373,8 @@ function createStyles(colors: ThemeColors) {
     gaugeContainer: {
       alignItems: 'center',
       justifyContent: 'center',
-      height: GAUGE_SIZE + 40,
-      marginBottom: 28,
+      height: GAUGE_SIZE + 16,
+      marginBottom: 20,
     },
     gaugeCenter: {
       position: 'absolute',
@@ -450,7 +454,8 @@ function createStyles(colors: ThemeColors) {
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
       borderTopColor: colors.surfaceHighlight,
-      padding: 20,
+      paddingVertical: 16,
+      paddingHorizontal: 20,
       marginBottom: 12,
       ...shadowMd,
       shadowRadius: 10,
@@ -459,7 +464,7 @@ function createStyles(colors: ThemeColors) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 14,
+      marginBottom: 6,
     },
     cardLabel: {
       color: colors.textSecondary,
@@ -544,7 +549,8 @@ function createStyles(colors: ThemeColors) {
     },
     footer: {
       marginTop: 'auto',
-      marginBottom: 36,
+      paddingTop: 12,
+      marginBottom: 16,
       alignItems: 'center',
     },
     footerText: {
@@ -572,6 +578,7 @@ export default function HomeScreen(): React.JSX.Element {
   const isDark = colorScheme !== 'light';
   const colors = isDark ? DARK_COLORS : LIGHT_COLORS;
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     (async () => {
@@ -715,7 +722,13 @@ export default function HomeScreen(): React.JSX.Element {
   }
 
   return (
-    <View style={styles.container} accessibilityRole="summary">
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.content,
+        {paddingTop: insets.top + 8, paddingBottom: insets.bottom},
+      ]}
+      accessibilityRole="summary">
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={colors.bg}
@@ -762,9 +775,9 @@ export default function HomeScreen(): React.JSX.Element {
             importantForAccessibility="no"
             style={{
               position: 'absolute',
-              width: GAUGE_SIZE * 0.68,
-              height: GAUGE_SIZE * 0.68,
-              borderRadius: GAUGE_SIZE * 0.34,
+              width: GAUGE_SIZE * 0.78,
+              height: GAUGE_SIZE * 0.78,
+              borderRadius: GAUGE_SIZE * 0.39,
               backgroundColor: batteryColors.glow,
             }}
           />
@@ -909,8 +922,8 @@ export default function HomeScreen(): React.JSX.Element {
                     Full Charge Alert
                   </Text>
                   <Text style={styles.toggleSub}>
-                    Alarm sounds at 100% while plugged in. Silent notification
-                    during quiet hours
+                    Alarm at 100% while plugged in. Silent during quiet
+                    hours
                   </Text>
                 </View>
                 <Switch
@@ -964,6 +977,6 @@ export default function HomeScreen(): React.JSX.Element {
           </Text>
         </View>
       </FadeIn>
-    </View>
+    </ScrollView>
   );
 }
