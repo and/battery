@@ -9,6 +9,7 @@ import {
   getThreshold,
   getMonitoringEnabled,
   getFullChargeAlertEnabled,
+  getQuietHours,
 } from '../storage/settings';
 import {BATTERY_CHECK_INTERVAL_MS, SNOOZE_DURATION_MS} from '../utils/constants';
 
@@ -168,12 +169,14 @@ export function getSnoozedState(): boolean {
 
 export async function startBackgroundService(): Promise<void> {
   if (Platform.OS !== 'android') return;
-  const [threshold, fullChargeAlert] = await Promise.all([
+  const [threshold, fullChargeAlert, quietHours] = await Promise.all([
     getThreshold(),
     getFullChargeAlertEnabled(),
+    getQuietHours(),
   ]);
   NativeModules.NativeSettings?.setThreshold(threshold);
   NativeModules.NativeSettings?.setFullChargeAlertEnabled(fullChargeAlert);
+  NativeModules.NativeSettings?.setQuietHours(quietHours.start, quietHours.end);
   NativeModules.NativeSettings?.startMonitoring();
 }
 

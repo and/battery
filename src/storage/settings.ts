@@ -1,11 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {NativeModules, Platform} from 'react-native';
-import {DEFAULT_THRESHOLD} from '../utils/constants';
+import {
+  DEFAULT_THRESHOLD,
+  DEFAULT_QUIET_START,
+  DEFAULT_QUIET_END,
+} from '../utils/constants';
 
 const THRESHOLD_KEY = '@battery_threshold';
 const MONITORING_KEY = '@monitoring_enabled';
 const STATUS_ICON_KEY = '@status_icon_enabled';
 const FULL_CHARGE_ALERT_KEY = '@full_charge_alert_enabled';
+const QUIET_START_KEY = '@quiet_start_minutes';
+const QUIET_END_KEY = '@quiet_end_minutes';
 const BATTERY_OPT_ASKED_KEY = '@battery_opt_asked';
 const NOTHING_BG_ASKED_KEY = '@nothing_bg_asked';
 
@@ -42,6 +48,32 @@ export async function setFullChargeAlertEnabled(enabled: boolean): Promise<void>
   await AsyncStorage.setItem(FULL_CHARGE_ALERT_KEY, enabled.toString());
   if (Platform.OS === 'android') {
     NativeModules.NativeSettings?.setFullChargeAlertEnabled(enabled);
+  }
+}
+
+export interface QuietHours {
+  start: number; // minutes after midnight
+  end: number;
+}
+
+export async function getQuietHours(): Promise<QuietHours> {
+  const [start, end] = await Promise.all([
+    AsyncStorage.getItem(QUIET_START_KEY),
+    AsyncStorage.getItem(QUIET_END_KEY),
+  ]);
+  return {
+    start: start != null ? parseInt(start, 10) : DEFAULT_QUIET_START,
+    end: end != null ? parseInt(end, 10) : DEFAULT_QUIET_END,
+  };
+}
+
+export async function setQuietHours({start, end}: QuietHours): Promise<void> {
+  await Promise.all([
+    AsyncStorage.setItem(QUIET_START_KEY, start.toString()),
+    AsyncStorage.setItem(QUIET_END_KEY, end.toString()),
+  ]);
+  if (Platform.OS === 'android') {
+    NativeModules.NativeSettings?.setQuietHours(start, end);
   }
 }
 

@@ -8,4 +8,6 @@ export const NOTIFICATION_ID = 'battery-low-alert';
 export const MONITORING_NOTIFICATION_ID = 'battery-monitoring';
 export const STATUS_ICON_CHANNEL_ID = 'battery-status-icon';
 export const STATUS_ICON_NOTIFICATION_ID = 'battery-status-icon';
+export const DEFAULT_QUIET_START = 22 * 60; // minutes after midnight (22:00)
+export const DEFAULT_QUIET_END = 7 * 60; // 07:00
 export const SNOOZE_DURATION_MS = 5 * 60 * 1000; // 5 minutes

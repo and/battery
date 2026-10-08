@@ -91,6 +91,11 @@ class NativeBatteryMonitorService : Service() {
         const val KEY_SNOOZE_UNTIL = "snooze_until"
         const val KEY_FULL_CHARGE_ALERT_ENABLED = "full_charge_alert_enabled"
         const val KEY_FULL_CHARGE_NOTIFIED = "full_charge_notified"
+        const val KEY_FULL_CHARGE_ALARM_ACTIVE = "full_charge_alarm_active"
+        const val KEY_QUIET_START = "quiet_start_minutes"
+        const val KEY_QUIET_END = "quiet_end_minutes"
+        const val DEFAULT_QUIET_START = 22 * 60
+        const val DEFAULT_QUIET_END = 7 * 60
         const val DEFAULT_THRESHOLD = 20
         private const val CHANNEL_ID = "battery_native_monitor_v2"
         const val NOTIF_ID = 9001
@@ -134,7 +139,7 @@ class NativeBatteryMonitorService : Service() {
                 FullChargeNotifier.cancel(context)
                 return
             }
-            FullChargeNotifier.update(context, prefs, pct, plugged)
+            if (FullChargeNotifier.update(context, prefs, pct, plugged)) return
             val threshold = prefs.getInt(KEY_THRESHOLD, DEFAULT_THRESHOLD)
             val snoozeUntil = prefs.getLong(KEY_SNOOZE_UNTIL, 0L)
             val snoozed = snoozeUntil > System.currentTimeMillis()

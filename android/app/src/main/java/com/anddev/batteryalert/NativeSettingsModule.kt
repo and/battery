@@ -1,6 +1,9 @@
 package com.anddev.batteryalert
 
+import android.app.TimePickerDialog
 import android.content.Context
+import android.text.format.DateFormat
+import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
@@ -34,6 +37,37 @@ class NativeSettingsModule(reactContext: ReactApplicationContext) :
             NativeBatteryMonitorService.recheck(reactApplicationContext)
         } else {
             FullChargeNotifier.cancel(reactApplicationContext)
+        }
+    }
+
+    @ReactMethod
+    fun setQuietHours(startMinutes: Int, endMinutes: Int) {
+        prefs().edit()
+            .putInt(NativeBatteryMonitorService.KEY_QUIET_START, startMinutes)
+            .putInt(NativeBatteryMonitorService.KEY_QUIET_END, endMinutes)
+            .apply()
+    }
+
+    /** Shows the system time picker; resolves minutes after midnight, or null if cancelled. */
+    @ReactMethod
+    fun showTimePicker(minutes: Int, promise: Promise) {
+        val activity = reactApplicationContext.currentActivity
+        if (activity == null) {
+            promise.resolve(null)
+            return
+        }
+        activity.runOnUiThread {
+            var picked = false
+            val dialog = TimePickerDialog(
+                activity,
+                { _, hour, minute ->
+                    picked = true
+                    promise.resolve(hour * 60 + minute)
+                },
+                minutes / 60, minutes % 60, DateFormat.is24HourFormat(activity)
+            )
+            dialog.setOnDismissListener { if (!picked) promise.resolve(null) }
+            dialog.show()
         }
     }
 

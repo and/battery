@@ -25,6 +25,9 @@ import {
   setMonitoringEnabled as saveMonitoringEnabled,
   getFullChargeAlertEnabled,
   setFullChargeAlertEnabled as saveFullChargeAlertEnabled,
+  getQuietHours,
+  setQuietHours as saveQuietHours,
+  QuietHours,
   getBatteryOptAsked,
   setBatteryOptAsked,
   getNothingBgAsked,
@@ -46,6 +49,8 @@ import {
   MIN_THRESHOLD,
   MAX_THRESHOLD,
   DEFAULT_THRESHOLD,
+  DEFAULT_QUIET_START,
+  DEFAULT_QUIET_END,
 } from '../utils/constants';
 
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
@@ -102,6 +107,12 @@ const LIGHT_COLORS = {
 };
 
 type ThemeColors = typeof DARK_COLORS;
+
+function formatMinutes(minutes: number): string {
+  const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+  const m = (minutes % 60).toString().padStart(2, '0');
+  return `${h}:${m}`;
+}
 
 function getBatteryColor(level: number, threshold: number, colors: ThemeColors) {
   if (level <= threshold) {
@@ -496,6 +507,38 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.surfaceBorder,
       marginVertical: 14,
     },
+    quietRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 14,
+      minHeight: 48,
+    },
+    quietLabel: {
+      color: colors.textSecondary,
+      fontSize: 14,
+    },
+    quietTimes: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    quietTime: {
+      color: colors.textPrimary,
+      fontSize: 16,
+      fontWeight: '500',
+      fontVariant: ['tabular-nums'],
+      paddingVertical: 12,
+      paddingHorizontal: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      overflow: 'hidden',
+    },
+    quietDash: {
+      color: colors.textMuted,
+      fontSize: 16,
+      marginHorizontal: 8,
+    },
     switchSize: {
       transform: [{scale: 1.1}],
     },
@@ -517,6 +560,10 @@ export default function HomeScreen(): React.JSX.Element {
   const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
   const [monitoring, setMonitoring] = useState(true);
   const [fullChargeAlert, setFullChargeAlert] = useState(false);
+  const [quietHours, setQuietHours] = useState<QuietHours>({
+    start: DEFAULT_QUIET_START,
+    end: DEFAULT_QUIET_END,
+  });
   const [loaded, setLoaded] = useState(false);
   const [alerting, setAlerting] = useState(false);
   const [snoozed, setSnoozed] = useState(false);
@@ -529,15 +576,21 @@ export default function HomeScreen(): React.JSX.Element {
   useEffect(() => {
     (async () => {
       await requestNotificationPermission();
-      const [savedThreshold, savedMonitoring, savedFullChargeAlert] =
-        await Promise.all([
-          getThreshold(),
-          getMonitoringEnabled(),
-          getFullChargeAlertEnabled(),
-        ]);
+      const [
+        savedThreshold,
+        savedMonitoring,
+        savedFullChargeAlert,
+        savedQuietHours,
+      ] = await Promise.all([
+        getThreshold(),
+        getMonitoringEnabled(),
+        getFullChargeAlertEnabled(),
+        getQuietHours(),
+      ]);
       setThreshold(savedThreshold);
       setMonitoring(savedMonitoring);
       setFullChargeAlert(savedFullChargeAlert);
+      setQuietHours(savedQuietHours);
       setLoaded(true);
       if (savedMonitoring) {
         startMonitoring();
@@ -625,6 +678,20 @@ export default function HomeScreen(): React.JSX.Element {
     setFullChargeAlert(enabled);
     await saveFullChargeAlertEnabled(enabled);
   }, []);
+
+  const handleQuietTimePress = useCallback(
+    async (which: 'start' | 'end') => {
+      const picked: number | null =
+        await NativeModules.NativeSettings?.showTimePicker(quietHours[which]);
+      if (picked == null) {
+        return;
+      }
+      const next = {...quietHours, [which]: picked};
+      setQuietHours(next);
+      await saveQuietHours(next);
+    },
+    [quietHours],
+  );
 
   const batteryColors = useMemo(
     () => getBatteryColor(level, threshold, colors),
@@ -842,7 +909,8 @@ export default function HomeScreen(): React.JSX.Element {
                     Full Charge Alert
                   </Text>
                   <Text style={styles.toggleSub}>
-                    Notifies at 100% while plugged in. Silent in Do Not Disturb
+                    Alarm sounds at 100% while plugged in. Silent notification
+                    during quiet hours
                   </Text>
                 </View>
                 <Switch
@@ -857,6 +925,32 @@ export default function HomeScreen(): React.JSX.Element {
                   style={styles.switchSize}
                 />
               </View>
+              {fullChargeAlert && (
+                <View style={styles.quietRow}>
+                  <Text style={styles.quietLabel}>Quiet hours</Text>
+                  <View style={styles.quietTimes}>
+                    <Pressable
+                      onPress={() => handleQuietTimePress('start')}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Quiet hours start, ${formatMinutes(quietHours.start)}`}
+                      accessibilityHint="Opens a time picker">
+                      <Text style={styles.quietTime}>
+                        {formatMinutes(quietHours.start)}
+                      </Text>
+                    </Pressable>
+                    <Text style={styles.quietDash}>–</Text>
+                    <Pressable
+                      onPress={() => handleQuietTimePress('end')}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Quiet hours end, ${formatMinutes(quietHours.end)}`}
+                      accessibilityHint="Opens a time picker">
+                      <Text style={styles.quietTime}>
+                        {formatMinutes(quietHours.end)}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
             </>
           )}
         </View>
