@@ -13,6 +13,7 @@ Features and tweaks planned for later. Move an item to the changelog or release 
 - [ ] Show an in-app message when a new version is released (for example, check the latest GitHub release on launch and link to the download).
 - [ ] Set up a publish pipeline to the Play Store (signed AAB build, Play App Signing, upload via CI), so users get automatic updates instead of downloading APKs from GitHub Releases.
 - [ ] Add an Obtainium link to the docs page, so sideloading users get update notifications.
+- [ ] Wishlist: smart charge reminder (Android). Log hourly battery level and charging state, learn the user's typical daily drain and plug-in times, and send a notification when now is the best time to charge (before a long unplugged stretch would take the battery below the threshold). Fall back to the plain threshold alarm until enough data is collected, and respect quiet hours and snooze.
 
 ## Checks
 
