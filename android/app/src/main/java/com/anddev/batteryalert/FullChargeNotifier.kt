@@ -3,13 +3,13 @@ package com.anddev.batteryalert
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.os.BatteryManager
 import androidx.core.app.NotificationCompat
-import java.util.Calendar
-
 // Alerts once per charging session when the battery reaches 100% while plugged in.
-// Outside quiet hours it plays the alarm (NativeAlarmService, KIND_FULL); during quiet
-// hours it posts a silent notification instead so nobody is woken up.
+// Alarm outside quiet hours; low-importance notification only during quiet hours.
 object FullChargeNotifier {
     private const val QUIET_CHANNEL_ID = "battery-full-charge-quiet"
     // Channel used by 1.5.0 for the sounding notification; replaced by the alarm.
@@ -23,28 +23,64 @@ object FullChargeNotifier {
             return false
         }
         if (prefs.getBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_ALARM_ACTIVE, false)) {
-            // Re-send in case a POWER_CONNECTED stop raced with the start.
-            NativeAlarmService.start(context, NativeAlarmService.KIND_FULL)
-            return true
+            if (shouldPlayFullChargeAlarm(prefs)) {
+                NativeAlarmService.start(context, NativeAlarmService.KIND_FULL)
+                return true
+            }
+            prefs.edit()
+                .putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_ALARM_ACTIVE, false)
+                .apply()
+            NativeAlarmService.stop(context)
         }
         val enabled = prefs.getBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_ALERT_ENABLED, false)
         val notified = prefs.getBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_NOTIFIED, false)
         if (!enabled || pct < 100 || notified) return false
 
-        val editor = prefs.edit().putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_NOTIFIED, true)
-        if (inQuietHours(prefs)) {
-            editor.apply()
-            showQuietNotification(context)
-            return false
+        prefs.edit().putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_NOTIFIED, true).apply()
+        if (shouldPlayFullChargeAlarm(prefs)) {
+            prefs.edit()
+                .putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_ALARM_ACTIVE, true)
+                .apply()
+            NativeAlarmService.start(context, NativeAlarmService.KIND_FULL)
+            return true
         }
-        editor.putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_ALARM_ACTIVE, true).apply()
-        NativeAlarmService.start(context, NativeAlarmService.KIND_FULL)
-        return true
+        showFullChargeNotification(context)
+        return false
+    }
+
+    private fun shouldPlayFullChargeAlarm(prefs: SharedPreferences): Boolean {
+        return prefs.getBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_ALERT_ENABLED, false) &&
+            !QuietHours.isInQuietHours(prefs)
     }
 
     /** Stops any full-charge alert and re-arms it for the next charging session. */
     fun cancel(context: Context) {
         reset(context, context.getSharedPreferences(NativeBatteryMonitorService.PREFS_NAME, Context.MODE_PRIVATE))
+    }
+
+    /**
+     * When the user turns on full-charge alarm in settings while already at 100% plugged in,
+     * start the alarm immediately (same idea as enabling low-battery monitoring while below threshold).
+     */
+    fun applyUserEnabledAlarm(context: Context) {
+        val prefs = context.getSharedPreferences(NativeBatteryMonitorService.PREFS_NAME, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_ALERT_ENABLED, false)) return
+        if (!shouldPlayFullChargeAlarm(prefs)) return
+        val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return
+        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        if (level < 0) return
+        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
+        val pct = if (scale > 0) (level * 100) / scale else return
+        val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+            status == BatteryManager.BATTERY_STATUS_FULL
+        val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
+        if (pct < 100 || !plugged || !charging) return
+        prefs.edit()
+            .putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_NOTIFIED, true)
+            .putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_ALARM_ACTIVE, true)
+            .apply()
+        NativeAlarmService.start(context, NativeAlarmService.KIND_FULL)
     }
 
     private fun reset(context: Context, prefs: SharedPreferences) {
@@ -59,22 +95,13 @@ object FullChargeNotifier {
             .apply()
     }
 
-    private fun inQuietHours(prefs: SharedPreferences): Boolean {
-        val start = prefs.getInt(NativeBatteryMonitorService.KEY_QUIET_START, NativeBatteryMonitorService.DEFAULT_QUIET_START)
-        val end = prefs.getInt(NativeBatteryMonitorService.KEY_QUIET_END, NativeBatteryMonitorService.DEFAULT_QUIET_END)
-        if (start == end) return false
-        val cal = Calendar.getInstance()
-        val now = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
-        return if (start < end) now in start until end else now >= start || now < end
-    }
-
-    private fun showQuietNotification(context: Context) {
+    private fun showFullChargeNotification(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.deleteNotificationChannel(LEGACY_CHANNEL_ID)
         if (nm.getNotificationChannel(QUIET_CHANNEL_ID) == null) {
             nm.createNotificationChannel(
-                NotificationChannel(QUIET_CHANNEL_ID, "Full Charge (quiet hours)", NotificationManager.IMPORTANCE_LOW).apply {
-                    description = "Silent full-charge notice shown during quiet hours"
+                NotificationChannel(QUIET_CHANNEL_ID, "Full Charge", NotificationManager.IMPORTANCE_LOW).apply {
+                    description = "Silent notice when the battery reaches 100% while charging"
                 }
             )
         }

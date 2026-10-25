@@ -37,16 +37,18 @@ import {
 } from '../storage/settings';
 import DeviceInfo from 'react-native-device-info';
 import {
-  startMonitoring,
-  stopMonitoring,
   forceCheck,
-  getAlertingState,
-  getSnoozedState,
+  fetchAlertingState,
+  fetchSnoozedState,
   snoozeAlarm,
-  startBackgroundService,
-  stopBackgroundService,
+  syncNativeSettings,
 } from '../services/BatteryMonitor';
 import {requestNotificationPermission} from '../services/NotificationService';
+import {
+  previewAlarm,
+  previewFullChargeAlarm,
+  stopPreviewAlarm,
+} from '../services/AlarmService';
 import {
   MIN_THRESHOLD,
   MAX_THRESHOLD,
@@ -333,8 +335,8 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.bg,
     },
     content: {
-      flexGrow: 1,
       paddingHorizontal: 20,
+      paddingBottom: 8,
     },
     header: {
       flexDirection: 'row',
@@ -520,8 +522,19 @@ function createStyles(colors: ThemeColors) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginTop: 14,
       minHeight: 48,
+    },
+    nestedToggleRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      minHeight: 44,
+      paddingLeft: 12,
+    },
+    nestedLabel: {
+      color: colors.textSecondary,
+      fontSize: 14,
+      fontWeight: '500',
     },
     quietLabel: {
       color: colors.textSecondary,
@@ -551,9 +564,37 @@ function createStyles(colors: ThemeColors) {
     switchSize: {
       transform: [{scale: 1.1}],
     },
+    toggleActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    previewButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderTopColor: colors.surfaceHighlight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+    },
+    previewButtonActive: {
+      borderColor: colors.good,
+      backgroundColor: colors.goodDim,
+    },
+    previewButtonDisabled: {
+      opacity: 0.4,
+    },
+    previewButtonLabel: {
+      fontSize: 18,
+      lineHeight: 20,
+      textAlign: 'center',
+      includeFontPadding: false,
+    },
     footer: {
-      marginTop: 'auto',
-      paddingTop: 12,
+      marginTop: 28,
       marginBottom: 16,
       alignItems: 'center',
     },
@@ -583,6 +624,8 @@ export default function HomeScreen(): React.JSX.Element {
   const [loaded, setLoaded] = useState(false);
   const [alerting, setAlerting] = useState(false);
   const [snoozed, setSnoozed] = useState(false);
+  const [previewingAlarm, setPreviewingAlarm] = useState(false);
+  const [previewingFullCharge, setPreviewingFullCharge] = useState(false);
   const reduceMotion = useReduceMotion();
   const colorScheme = useColorScheme();
   const isDark = colorScheme !== 'light';
@@ -609,10 +652,7 @@ export default function HomeScreen(): React.JSX.Element {
       setFullChargeAlert(savedFullChargeAlert);
       setQuietHours(savedQuietHours);
       setLoaded(true);
-      if (savedMonitoring) {
-        startMonitoring();
-        await startBackgroundService();
-      }
+      await syncNativeSettings();
       if (Platform.OS === 'android') {
         const [isIgnoring, alreadyActioned, nothingAsked, manufacturer] =
           await Promise.all([
@@ -655,17 +695,64 @@ export default function HomeScreen(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    const poll = setInterval(() => {
-      setAlerting(getAlertingState());
-      setSnoozed(getSnoozedState());
+    const poll = async () => {
+      const [alertingNow, snoozedNow] = await Promise.all([
+        fetchAlertingState(),
+        fetchSnoozedState(),
+      ]);
+      setAlerting(alertingNow);
+      setSnoozed(snoozedNow);
+    };
+    const id = setInterval(() => {
+      poll();
     }, 2000);
-    return () => clearInterval(poll);
+    poll();
+    return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    return () => {
+      stopPreviewAlarm();
+    };
+  }, []);
+
+  const handlePreviewAlarm = useCallback(() => {
+    if (alerting) {
+      return;
+    }
+    if (previewingFullCharge) {
+      stopPreviewAlarm();
+      setPreviewingFullCharge(false);
+    }
+    if (previewingAlarm) {
+      stopPreviewAlarm();
+      setPreviewingAlarm(false);
+      return;
+    }
+    previewAlarm();
+    setPreviewingAlarm(true);
+    setTimeout(() => setPreviewingAlarm(false), 3000);
+  }, [alerting, previewingAlarm, previewingFullCharge]);
+
+  const handlePreviewFullChargeAlarm = useCallback(() => {
+    if (previewingAlarm) {
+      stopPreviewAlarm();
+      setPreviewingAlarm(false);
+    }
+    if (previewingFullCharge) {
+      stopPreviewAlarm();
+      setPreviewingFullCharge(false);
+      return;
+    }
+    previewFullChargeAlarm();
+    setPreviewingFullCharge(true);
+    setTimeout(() => setPreviewingFullCharge(false), 3000);
+  }, [previewingAlarm, previewingFullCharge]);
 
   const handleSnooze = useCallback(() => {
     snoozeAlarm();
-    setAlerting(getAlertingState());
     setSnoozed(true);
+    fetchAlertingState().then(setAlerting);
   }, []);
 
   const handleThresholdSlide = useCallback((value: number) => {
@@ -682,18 +769,15 @@ export default function HomeScreen(): React.JSX.Element {
   const handleMonitoringToggle = useCallback(async (enabled: boolean) => {
     setMonitoring(enabled);
     await saveMonitoringEnabled(enabled);
-    if (enabled) {
-      startMonitoring();
-      await startBackgroundService();
-    } else {
-      await stopMonitoring();
-      await stopBackgroundService();
-    }
+    await syncNativeSettings();
   }, []);
 
   const handleFullChargeAlertToggle = useCallback(async (enabled: boolean) => {
     setFullChargeAlert(enabled);
     await saveFullChargeAlertEnabled(enabled);
+    if (enabled) {
+      NativeModules.NativeSettings?.applyFullChargeAlarmFromUserToggle?.();
+    }
   }, []);
 
   const handleQuietTimePress = useCallback(
@@ -706,6 +790,7 @@ export default function HomeScreen(): React.JSX.Element {
       const next = {...quietHours, [which]: picked};
       setQuietHours(next);
       await saveQuietHours(next);
+      forceCheck();
     },
     [quietHours],
   );
@@ -904,81 +989,126 @@ export default function HomeScreen(): React.JSX.Element {
         </View>
       </FadeIn>
 
-      {/* Monitoring toggle card */}
+      {/* Alerts */}
       <FadeIn delay={reduceMotion ? 0 : 300} reduceMotion={reduceMotion}>
         <View style={styles.card}>
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
               <Text style={styles.cardLabel} accessibilityRole="header">
-                Monitoring
+                Low battery alarm
               </Text>
               <Text style={styles.toggleSub}>
-                Alarm sounds below {threshold}% until plugged in
+                Below {threshold}% until you plug in
               </Text>
             </View>
-            <Switch
-              value={monitoring}
-              onValueChange={handleMonitoringToggle}
-              trackColor={{false: colors.switchTrackOff, true: colors.goodDim}}
-              thumbColor={monitoring ? colors.good : colors.switchThumbOff}
-              ios_backgroundColor={colors.switchTrackOff}
-              accessibilityLabel="Battery monitoring"
-              accessibilityHint={`${monitoring ? 'Disable' : 'Enable'} battery monitoring alerts`}
-              accessibilityRole="switch"
-              style={styles.switchSize}
-            />
+            <View style={styles.toggleActions}>
+              <Pressable
+                onPress={handlePreviewAlarm}
+                disabled={alerting}
+                style={({pressed}) => [
+                  styles.previewButton,
+                  previewingAlarm && styles.previewButtonActive,
+                  alerting && styles.previewButtonDisabled,
+                  pressed && !alerting && {opacity: 0.7},
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Preview alarm sound"
+                accessibilityHint={
+                  alerting
+                    ? 'Unavailable while the alarm is active'
+                    : 'Plays a short sample of the low battery alarm'
+                }
+                accessibilityState={{disabled: alerting, busy: previewingAlarm}}>
+                <Text
+                  style={styles.previewButtonLabel}
+                  importantForAccessibility="no">
+                  🔊
+                </Text>
+              </Pressable>
+              <Switch
+                value={monitoring}
+                onValueChange={handleMonitoringToggle}
+                trackColor={{false: colors.switchTrackOff, true: colors.goodDim}}
+                thumbColor={monitoring ? colors.good : colors.switchThumbOff}
+                ios_backgroundColor={colors.switchTrackOff}
+                accessibilityLabel="Low battery alarm"
+                accessibilityHint={`${monitoring ? 'Disable' : 'Enable'} low battery monitoring`}
+                accessibilityRole="switch"
+                style={styles.switchSize}
+              />
+            </View>
           </View>
-          {Platform.OS === 'android' && (
+          <View style={styles.toggleDivider} />
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <Text style={styles.cardLabel} accessibilityRole="header">
+                Full charge alarm
+              </Text>
+              <Text style={styles.toggleSub}>
+                At 100% while charging
+              </Text>
+            </View>
+            <View style={styles.toggleActions}>
+              <Pressable
+                onPress={handlePreviewFullChargeAlarm}
+                style={({pressed}) => [
+                  styles.previewButton,
+                  previewingFullCharge && styles.previewButtonActive,
+                  pressed && {opacity: 0.7},
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Preview full charge alarm sound"
+                accessibilityHint="Plays a short sample of the sound used at 100%"
+                accessibilityState={{busy: previewingFullCharge}}>
+                <Text
+                  style={styles.previewButtonLabel}
+                  importantForAccessibility="no">
+                  🔊
+                </Text>
+              </Pressable>
+              <Switch
+                value={fullChargeAlert}
+                onValueChange={handleFullChargeAlertToggle}
+                trackColor={{false: colors.switchTrackOff, true: colors.goodDim}}
+                thumbColor={fullChargeAlert ? colors.good : colors.switchThumbOff}
+                ios_backgroundColor={colors.switchTrackOff}
+                accessibilityLabel="Full charge alarm"
+                accessibilityHint={`${fullChargeAlert ? 'Disable' : 'Enable'} alarm at 100% while charging; silent during quiet hours`}
+                accessibilityRole="switch"
+                style={styles.switchSize}
+              />
+            </View>
+          </View>
+          {(monitoring || fullChargeAlert) && (
             <>
               <View style={styles.toggleDivider} />
-              <View style={styles.toggleRow}>
-                <View style={styles.toggleInfo}>
-                  <Text style={styles.cardLabel} accessibilityRole="header">
-                    Full Charge Alert
-                  </Text>
-                  <Text style={styles.toggleSub}>
-                    Alarm at 100% while plugged in. Silent during quiet
-                    hours
-                  </Text>
+              <View
+                style={styles.quietRow}
+                accessible
+                accessibilityRole="adjustable"
+                accessibilityLabel={`Quiet hours, ${formatMinutes(quietHours.start)} to ${formatMinutes(quietHours.end)}. Alarms are silent during this window.`}
+                accessibilityHint="Tap a time to change it">
+                <Text style={styles.quietLabel}>Quiet hours</Text>
+                <View style={styles.quietTimes}>
+                  <Pressable
+                    onPress={() => handleQuietTimePress('start')}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Start, ${formatMinutes(quietHours.start)}`}>
+                    <Text style={styles.quietTime}>
+                      {formatMinutes(quietHours.start)}
+                    </Text>
+                  </Pressable>
+                  <Text style={styles.quietDash}>–</Text>
+                  <Pressable
+                    onPress={() => handleQuietTimePress('end')}
+                    accessibilityRole="button"
+                    accessibilityLabel={`End, ${formatMinutes(quietHours.end)}`}>
+                    <Text style={styles.quietTime}>
+                      {formatMinutes(quietHours.end)}
+                    </Text>
+                  </Pressable>
                 </View>
-                <Switch
-                  value={fullChargeAlert}
-                  onValueChange={handleFullChargeAlertToggle}
-                  trackColor={{false: colors.switchTrackOff, true: colors.goodDim}}
-                  thumbColor={fullChargeAlert ? colors.good : colors.switchThumbOff}
-                  ios_backgroundColor={colors.switchTrackOff}
-                  accessibilityLabel="Full charge alert"
-                  accessibilityHint={`${fullChargeAlert ? 'Disable' : 'Enable'} the notification when the battery is fully charged`}
-                  accessibilityRole="switch"
-                  style={styles.switchSize}
-                />
               </View>
-              {fullChargeAlert && (
-                <View style={styles.quietRow}>
-                  <Text style={styles.quietLabel}>Quiet hours</Text>
-                  <View style={styles.quietTimes}>
-                    <Pressable
-                      onPress={() => handleQuietTimePress('start')}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Quiet hours start, ${formatMinutes(quietHours.start)}`}
-                      accessibilityHint="Opens a time picker">
-                      <Text style={styles.quietTime}>
-                        {formatMinutes(quietHours.start)}
-                      </Text>
-                    </Pressable>
-                    <Text style={styles.quietDash}>–</Text>
-                    <Pressable
-                      onPress={() => handleQuietTimePress('end')}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Quiet hours end, ${formatMinutes(quietHours.end)}`}
-                      accessibilityHint="Opens a time picker">
-                      <Text style={styles.quietTime}>
-                        {formatMinutes(quietHours.end)}
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
-              )}
             </>
           )}
         </View>
@@ -987,9 +1117,7 @@ export default function HomeScreen(): React.JSX.Element {
       {/* Footer */}
       <FadeIn delay={reduceMotion ? 0 : 400} reduceMotion={reduceMotion}>
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Runs in background {'·'} Minimal battery impact
-          </Text>
+          <Text style={styles.footerText}>Background monitoring</Text>
           <Text style={styles.versionText}>v{DeviceInfo.getVersion()}</Text>
         </View>
       </FadeIn>

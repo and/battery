@@ -13,6 +13,7 @@ class BootReceiver : BroadcastReceiver() {
             val prefs = context.getSharedPreferences(
                 NativeBatteryMonitorService.PREFS_NAME, Context.MODE_PRIVATE
             )
+            QuietHoursScheduler.reschedule(context)
             if (prefs.getBoolean(NativeBatteryMonitorService.KEY_MONITORING_ENABLED, true)) {
                 NativeBatteryMonitorService.start(context)
             }

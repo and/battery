@@ -12,6 +12,9 @@ import {
   getQuietHours,
 } from '../storage/settings';
 import {BATTERY_CHECK_INTERVAL_MS, SNOOZE_DURATION_MS} from '../utils/constants';
+import {isInQuietHours} from '../utils/quietHours';
+
+const isAndroid = Platform.OS === 'android';
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
 let isAlerting = false;
@@ -22,6 +25,10 @@ let powerStateSubscription: {remove: () => void} | null = null;
 let deviceInfoEmitter: NativeEventEmitter | null = null;
 
 async function checkBattery(): Promise<void> {
+  if (isAndroid) {
+    return;
+  }
+
   try {
     const enabled = await getMonitoringEnabled();
     if (!enabled) {
@@ -32,14 +39,18 @@ async function checkBattery(): Promise<void> {
       return;
     }
 
-    const [level, isCharging] = await Promise.all([
-      DeviceInfo.getBatteryLevel(),
-      DeviceInfo.isBatteryCharging(),
-    ]);
+    const {batteryLevel = -1, batteryState} = await DeviceInfo.getPowerState();
+    const isCharging =
+      batteryState === 'charging' ||
+      (batteryState === 'full' && batteryLevel >= 0.99);
 
-    // level returns -1 on simulators/unsupported devices — treat as full
-    const batteryPercent = level < 0 ? 100 : Math.round(level * 100);
-    const threshold = await getThreshold();
+    const batteryPercent =
+      batteryLevel < 0 ? 100 : Math.round(batteryLevel * 100);
+    const [threshold, quietHours] = await Promise.all([
+      getThreshold(),
+      getQuietHours(),
+    ]);
+    const inQuiet = isInQuietHours(quietHours);
 
     if (isCharging) {
       if (isAlerting) {
@@ -51,8 +62,15 @@ async function checkBattery(): Promise<void> {
       return;
     }
 
-    // Not charging and battery is at or below threshold
     if (batteryPercent <= threshold) {
+      if (inQuiet) {
+        if (isAlerting) {
+          await dismissLowBatteryAlert();
+          stopAlarm();
+          isAlerting = false;
+        }
+        return;
+      }
       await showLowBatteryAlert(batteryPercent);
       if (!isSnoozed) {
         startAlarm();
@@ -74,16 +92,17 @@ function handleAppStateChange(nextState: AppStateStatus): void {
   }
 }
 
+/** Legacy JS monitor (non-Android). On Android use {@link startBackgroundService}. */
 export function startMonitoring(): void {
+  if (isAndroid) {
+    return;
+  }
   if (intervalId) {
     return;
   }
 
-  // Initial check
   checkBattery();
 
-  // Listen for power state changes (charger connect/disconnect)
-  // This is event-driven and fires instantly when charging state changes
   if (!deviceInfoEmitter) {
     deviceInfoEmitter = new NativeEventEmitter(NativeModules.RNDeviceInfo);
   }
@@ -94,14 +113,14 @@ export function startMonitoring(): void {
     },
   );
 
-  // Fallback polling interval (safety net)
   intervalId = setInterval(checkBattery, BATTERY_CHECK_INTERVAL_MS);
-
-  // Check when app returns to foreground
   appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
 }
 
 export async function stopMonitoring(): Promise<void> {
+  if (isAndroid) {
+    return;
+  }
   if (intervalId) {
     clearInterval(intervalId);
     intervalId = null;
@@ -127,10 +146,21 @@ export async function stopMonitoring(): Promise<void> {
 }
 
 export function forceCheck(): void {
+  if (isAndroid) {
+    NativeModules.NativeSettings?.recheckBattery();
+    return;
+  }
   checkBattery();
 }
 
 export function getAlertingState(): boolean {
+  return isAlerting;
+}
+
+export async function fetchAlertingState(): Promise<boolean> {
+  if (isAndroid) {
+    return NativeModules.NativeSettings?.getLowBatteryAlerting() ?? false;
+  }
   return isAlerting;
 }
 
@@ -140,24 +170,29 @@ function clearSnooze(): void {
     snoozeTimerId = null;
   }
   isSnoozed = false;
-  if (Platform.OS === 'android') {
+  if (isAndroid) {
     NativeModules.NativeSettings?.setSnoozeUntil(0);
   }
 }
 
 export function snoozeAlarm(): void {
+  if (isAndroid) {
+    NativeModules.NativeSettings?.stopAlarm();
+    const snoozeUntil = Date.now() + SNOOZE_DURATION_MS;
+    NativeModules.NativeSettings?.setSnoozeUntil(snoozeUntil);
+    snoozeTimerId = setTimeout(() => {
+      snoozeTimerId = null;
+      NativeModules.NativeSettings?.setSnoozeUntil(0);
+      NativeModules.NativeSettings?.recheckBattery();
+    }, SNOOZE_DURATION_MS);
+    return;
+  }
+
   stopAlarm();
   isSnoozed = true;
-  const snoozeUntil = Date.now() + SNOOZE_DURATION_MS;
-  if (Platform.OS === 'android') {
-    NativeModules.NativeSettings?.setSnoozeUntil(snoozeUntil);
-  }
   snoozeTimerId = setTimeout(() => {
     isSnoozed = false;
     snoozeTimerId = null;
-    if (Platform.OS === 'android') {
-      NativeModules.NativeSettings?.setSnoozeUntil(0);
-    }
     checkBattery();
   }, SNOOZE_DURATION_MS);
 }
@@ -166,21 +201,41 @@ export function getSnoozedState(): boolean {
   return isSnoozed;
 }
 
+export async function fetchSnoozedState(): Promise<boolean> {
+  if (isAndroid) {
+    return NativeModules.NativeSettings?.getSnoozed() ?? false;
+  }
+  return isSnoozed;
+}
 
-export async function startBackgroundService(): Promise<void> {
-  if (Platform.OS !== 'android') return;
-  const [threshold, fullChargeAlert, quietHours] = await Promise.all([
+/** Push all settings from AsyncStorage to native prefs and (re)start monitoring. */
+export async function syncNativeSettings(): Promise<void> {
+  if (!isAndroid) {
+    return;
+  }
+  const [threshold, fullChargeAlert, quietHours, monitoring] = await Promise.all([
     getThreshold(),
     getFullChargeAlertEnabled(),
     getQuietHours(),
+    getMonitoringEnabled(),
   ]);
   NativeModules.NativeSettings?.setThreshold(threshold);
   NativeModules.NativeSettings?.setFullChargeAlertEnabled(fullChargeAlert);
   NativeModules.NativeSettings?.setQuietHours(quietHours.start, quietHours.end);
-  NativeModules.NativeSettings?.startMonitoring();
+  NativeModules.NativeSettings?.setMonitoringEnabled(monitoring);
+  NativeModules.NativeSettings?.scheduleQuietHours();
+  if (monitoring) {
+    NativeModules.NativeSettings?.startMonitoring();
+  } else {
+    NativeModules.NativeSettings?.stopMonitoring();
+  }
+}
+
+/** @deprecated Use {@link syncNativeSettings} */
+export async function startBackgroundService(): Promise<void> {
+  await syncNativeSettings();
 }
 
 export async function stopBackgroundService(): Promise<void> {
-  if (Platform.OS !== 'android') return;
-  NativeModules.NativeSettings?.stopMonitoring();
+  await syncNativeSettings();
 }

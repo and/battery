@@ -11,6 +11,7 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 
 class NativeBatteryMonitorService : Service() {
 
@@ -22,6 +23,7 @@ class NativeBatteryMonitorService : Service() {
         if (batteryReceiver == null) {
             registerBatteryReceiver()
         }
+        QuietHoursScheduler.reschedule(this)
         return START_STICKY
     }
 
@@ -38,7 +40,12 @@ class NativeBatteryMonitorService : Service() {
             addAction(Intent.ACTION_BATTERY_CHANGED)
             addAction(Intent.ACTION_POWER_CONNECTED)
         }
-        registerReceiver(batteryReceiver, filter)
+        ContextCompat.registerReceiver(
+            this,
+            batteryReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
     }
 
     private fun handleBatteryChanged(intent: Intent) {
@@ -89,7 +96,9 @@ class NativeBatteryMonitorService : Service() {
         const val KEY_THRESHOLD = "threshold"
         const val KEY_MONITORING_ENABLED = "monitoring_enabled"
         const val KEY_SNOOZE_UNTIL = "snooze_until"
+        const val KEY_LOW_BATTERY_ALARM_ACTIVE = "low_battery_alarm_active"
         const val KEY_FULL_CHARGE_ALERT_ENABLED = "full_charge_alert_enabled"
+        const val KEY_FULL_CHARGE_USE_ALARM = "full_charge_use_alarm"
         const val KEY_FULL_CHARGE_NOTIFIED = "full_charge_notified"
         const val KEY_FULL_CHARGE_ALARM_ACTIVE = "full_charge_alarm_active"
         const val KEY_QUIET_START = "quiet_start_minutes"
@@ -143,10 +152,13 @@ class NativeBatteryMonitorService : Service() {
             val threshold = prefs.getInt(KEY_THRESHOLD, DEFAULT_THRESHOLD)
             val snoozeUntil = prefs.getLong(KEY_SNOOZE_UNTIL, 0L)
             val snoozed = snoozeUntil > System.currentTimeMillis()
+            val inQuiet = QuietHours.isInQuietHours(prefs)
             if (charging || pct > threshold) {
                 NativeAlarmService.stop(context)
-            } else if (!snoozed) {
+            } else if (!snoozed && !inQuiet) {
                 NativeAlarmService.start(context)
+            } else if (inQuiet) {
+                NativeAlarmService.stop(context)
             }
         }
     }

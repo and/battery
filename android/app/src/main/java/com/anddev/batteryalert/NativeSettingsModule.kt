@@ -32,12 +32,22 @@ class NativeSettingsModule(reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun setFullChargeAlertEnabled(enabled: Boolean) {
-        prefs().edit().putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_ALERT_ENABLED, enabled).apply()
+        prefs().edit()
+            .putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_ALERT_ENABLED, enabled)
+            .putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_USE_ALARM, enabled)
+            .apply()
         if (enabled) {
             NativeBatteryMonitorService.recheck(reactApplicationContext)
         } else {
+            AlarmPreviewPlayer.stop()
             FullChargeNotifier.cancel(reactApplicationContext)
         }
+    }
+
+    /** Called from settings UI when the user turns full-charge alarm on while already at 100%. */
+    @ReactMethod
+    fun applyFullChargeAlarmFromUserToggle() {
+        FullChargeNotifier.applyUserEnabledAlarm(reactApplicationContext)
     }
 
     @ReactMethod
@@ -46,6 +56,13 @@ class NativeSettingsModule(reactContext: ReactApplicationContext) :
             .putInt(NativeBatteryMonitorService.KEY_QUIET_START, startMinutes)
             .putInt(NativeBatteryMonitorService.KEY_QUIET_END, endMinutes)
             .apply()
+        NativeBatteryMonitorService.recheck(reactApplicationContext)
+        QuietHoursScheduler.reschedule(reactApplicationContext)
+    }
+
+    @ReactMethod
+    fun scheduleQuietHours() {
+        QuietHoursScheduler.reschedule(reactApplicationContext)
     }
 
     /** Shows the system time picker; resolves minutes after midnight, or null if cancelled. */
@@ -95,6 +112,39 @@ class NativeSettingsModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun stopAlarm() {
         NativeAlarmService.stop(reactApplicationContext)
+    }
+
+    @ReactMethod
+    fun previewAlarm() {
+        AlarmPreviewPlayer.play(reactApplicationContext, fullCharge = false)
+    }
+
+    @ReactMethod
+    fun previewFullChargeAlarm() {
+        AlarmPreviewPlayer.play(reactApplicationContext, fullCharge = true)
+    }
+
+    @ReactMethod
+    fun stopPreviewAlarm() {
+        AlarmPreviewPlayer.stop()
+    }
+
+    @ReactMethod
+    fun recheckBattery() {
+        NativeBatteryMonitorService.recheck(reactApplicationContext)
+    }
+
+    @ReactMethod
+    fun getLowBatteryAlerting(promise: Promise) {
+        promise.resolve(
+            prefs().getBoolean(NativeBatteryMonitorService.KEY_LOW_BATTERY_ALARM_ACTIVE, false)
+        )
+    }
+
+    @ReactMethod
+    fun getSnoozed(promise: Promise) {
+        val until = prefs().getLong(NativeBatteryMonitorService.KEY_SNOOZE_UNTIL, 0L)
+        promise.resolve(until > System.currentTimeMillis())
     }
 
     private fun prefs() = reactApplicationContext.getSharedPreferences(

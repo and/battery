@@ -10,6 +10,7 @@ const THRESHOLD_KEY = '@battery_threshold';
 const MONITORING_KEY = '@monitoring_enabled';
 const STATUS_ICON_KEY = '@status_icon_enabled';
 const FULL_CHARGE_ALERT_KEY = '@full_charge_alert_enabled';
+const FULL_CHARGE_USE_ALARM_KEY = '@full_charge_use_alarm';
 const QUIET_START_KEY = '@quiet_start_minutes';
 const QUIET_END_KEY = '@quiet_end_minutes';
 const BATTERY_OPT_ASKED_KEY = '@battery_opt_asked';
@@ -34,18 +35,29 @@ export async function getMonitoringEnabled(): Promise<boolean> {
 
 export async function setMonitoringEnabled(enabled: boolean): Promise<void> {
   await AsyncStorage.setItem(MONITORING_KEY, enabled.toString());
-  if (Platform.OS === 'android') {
-    NativeModules.NativeSettings?.setMonitoringEnabled(enabled);
-  }
 }
 
+/** Full-charge alarm at 100% while charging (silent notification only during quiet hours). */
 export async function getFullChargeAlertEnabled(): Promise<boolean> {
-  const value = await AsyncStorage.getItem(FULL_CHARGE_ALERT_KEY);
-  return value === 'true';
+  const [alert, legacyAlarm] = await Promise.all([
+    AsyncStorage.getItem(FULL_CHARGE_ALERT_KEY),
+    AsyncStorage.getItem(FULL_CHARGE_USE_ALARM_KEY),
+  ]);
+  if (alert !== 'true') {
+    return false;
+  }
+  // Pre–single-switch: alert on without alarm meant notify-only; treat as off.
+  if (legacyAlarm === 'false') {
+    return false;
+  }
+  return true;
 }
 
 export async function setFullChargeAlertEnabled(enabled: boolean): Promise<void> {
-  await AsyncStorage.setItem(FULL_CHARGE_ALERT_KEY, enabled.toString());
+  await Promise.all([
+    AsyncStorage.setItem(FULL_CHARGE_ALERT_KEY, enabled.toString()),
+    AsyncStorage.setItem(FULL_CHARGE_USE_ALARM_KEY, enabled.toString()),
+  ]);
   if (Platform.OS === 'android') {
     NativeModules.NativeSettings?.setFullChargeAlertEnabled(enabled);
   }

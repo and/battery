@@ -52,6 +52,9 @@
         </intent-filter>
       </receiver>
       <receiver
+        android:name=".QuietHoursAlarmReceiver"
+        android:exported="false" />
+      <receiver
         android:name=".BatteryAlertReceiver"
         android:exported="false">
         <intent-filter>

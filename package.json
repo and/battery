@@ -7,8 +7,7 @@
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest",
-    "postinstall": "patch-package"
+    "test": "jest"
   },
   "dependencies": {
     "@notifee/react-native": "^9.1.8",

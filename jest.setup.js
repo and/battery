@@ -1,6 +1,12 @@
 jest.mock('react-native-device-info', () => ({
   getBatteryLevel: jest.fn().mockResolvedValue(0.5),
   isBatteryCharging: jest.fn().mockResolvedValue(false),
+  getPowerState: jest.fn().mockResolvedValue({
+    batteryLevel: 0.5,
+    batteryState: 'unplugged',
+  }),
+  getVersion: jest.fn().mockReturnValue('0.0.1'),
+  getManufacturer: jest.fn().mockResolvedValue('Google'),
   addBatteryLevelListener: jest.fn(() => ({remove: jest.fn()})),
   addPowerStateListener: jest.fn(() => ({remove: jest.fn()})),
 }));
