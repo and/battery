@@ -100,6 +100,7 @@ class NativeBatteryMonitorService : Service() {
         const val KEY_FULL_CHARGE_ALERT_ENABLED = "full_charge_alert_enabled"
         const val KEY_FULL_CHARGE_USE_ALARM = "full_charge_use_alarm"
         const val KEY_FULL_CHARGE_NOTIFIED = "full_charge_notified"
+        const val KEY_FULL_CHARGE_REACHED_AT_MS = "full_charge_reached_at_ms"
         const val KEY_FULL_CHARGE_ALARM_ACTIVE = "full_charge_alarm_active"
         const val KEY_QUIET_START = "quiet_start_minutes"
         const val KEY_QUIET_END = "quiet_end_minutes"

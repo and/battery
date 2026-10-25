@@ -7,7 +7,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.os.BatteryManager
+import android.text.format.DateFormat
 import androidx.core.app.NotificationCompat
+import java.util.Date
 // Alerts once per charging session when the battery reaches 100% while plugged in.
 // Alarm outside quiet hours; low-importance notification only during quiet hours.
 object FullChargeNotifier {
@@ -36,7 +38,7 @@ object FullChargeNotifier {
         val notified = prefs.getBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_NOTIFIED, false)
         if (!enabled || pct < 100 || notified) return false
 
-        prefs.edit().putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_NOTIFIED, true).apply()
+        markReached100(prefs)
         if (shouldPlayFullChargeAlarm(prefs)) {
             prefs.edit()
                 .putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_ALARM_ACTIVE, true)
@@ -76,8 +78,8 @@ object FullChargeNotifier {
             status == BatteryManager.BATTERY_STATUS_FULL
         val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
         if (pct < 100 || !plugged || !charging) return
+        markReached100(prefs)
         prefs.edit()
-            .putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_NOTIFIED, true)
             .putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_ALARM_ACTIVE, true)
             .apply()
         NativeAlarmService.start(context, NativeAlarmService.KIND_FULL)
@@ -92,7 +94,27 @@ object FullChargeNotifier {
         prefs.edit()
             .putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_NOTIFIED, false)
             .putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_ALARM_ACTIVE, false)
+            .remove(NativeBatteryMonitorService.KEY_FULL_CHARGE_REACHED_AT_MS)
             .apply()
+    }
+
+    fun markReached100(prefs: SharedPreferences) {
+        prefs.edit()
+            .putBoolean(NativeBatteryMonitorService.KEY_FULL_CHARGE_NOTIFIED, true)
+            .putLong(
+                NativeBatteryMonitorService.KEY_FULL_CHARGE_REACHED_AT_MS,
+                System.currentTimeMillis(),
+            )
+            .apply()
+    }
+
+    fun fullChargeNotificationBody(context: Context, prefs: SharedPreferences): String {
+        val reachedAt = prefs.getLong(NativeBatteryMonitorService.KEY_FULL_CHARGE_REACHED_AT_MS, 0L)
+        if (reachedAt <= 0L) {
+            return "Battery is at 100%. You can unplug your charger."
+        }
+        val time = DateFormat.getTimeFormat(context).format(Date(reachedAt))
+        return "Reached 100% at $time. You can unplug your charger."
     }
 
     private fun showFullChargeNotification(context: Context) {
@@ -105,10 +127,13 @@ object FullChargeNotifier {
                 }
             )
         }
+        val prefs = context.getSharedPreferences(NativeBatteryMonitorService.PREFS_NAME, Context.MODE_PRIVATE)
         val notification = NotificationCompat.Builder(context, QUIET_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_battery_monitor)
             .setContentTitle("Battery Fully Charged")
-            .setContentText("Battery is at 100%. You can unplug your charger.")
+            .setContentText(fullChargeNotificationBody(context, prefs))
+            .setWhen(prefs.getLong(NativeBatteryMonitorService.KEY_FULL_CHARGE_REACHED_AT_MS, System.currentTimeMillis()))
+            .setShowWhen(true)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setAutoCancel(true)
             .setContentIntent(openAppPendingIntent(context))

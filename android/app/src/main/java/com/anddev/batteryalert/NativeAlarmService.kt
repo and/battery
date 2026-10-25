@@ -164,8 +164,11 @@ class NativeAlarmService : Service() {
             .setSmallIcon(R.drawable.ic_stat_battery_monitor)
             .setContentTitle(if (full) "Battery Fully Charged" else "Low Battery Warning")
             .setContentText(
-                if (full) "Battery is at 100%. Please unplug your charger."
-                else "Battery is critically low. Please plug in your charger."
+                if (full) {
+                    FullChargeNotifier.fullChargeNotificationBody(this, prefs())
+                } else {
+                    "Battery is critically low. Please plug in your charger."
+                }
             )
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -174,7 +177,13 @@ class NativeAlarmService : Service() {
             .setOnlyAlertOnce(true)
             .setContentIntent(openAppPendingIntent(this))
         if (full) {
+            val reachedAt = prefs().getLong(
+                NativeBatteryMonitorService.KEY_FULL_CHARGE_REACHED_AT_MS,
+                System.currentTimeMillis(),
+            )
             builder
+                .setWhen(reachedAt)
+                .setShowWhen(true)
                 .addAction(0, "Dismiss", dismissIntent(kind))
                 .setDeleteIntent(dismissIntent(kind))
         }
