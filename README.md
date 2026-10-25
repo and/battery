@@ -13,7 +13,7 @@ Built for people who forget to charge their phone and end up with a dead battery
 - Custom low-battery threshold (5%–50%)
 - Persistent low-battery alarm until you plug in (with optional 5‑minute snooze)
 - **Quiet hours** — low-battery alarms wait until the sleep window ends; resumes if still low
-- **Full charge** — optional notification at 100% while charging; separate chime if you enable alarm sound
+- **Full charge alarm** — escalating chimes at 100% while charging (silent notification during quiet hours)
 - Background monitoring via a foreground service (works when the app is backgrounded or swiped away)
 - Boot receiver restarts monitoring after reboot or app update
 - WCAG AA–oriented UI with light/dark theme
